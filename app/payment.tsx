@@ -175,14 +175,15 @@ export default function PaymentScreen() {
       return;
     }
     if (shippingTab === 'kurir') {
-      const kotaLower = selectedAddress?.kota?.toLowerCase() || '';
-      if (!kotaLower.includes('malang')) {
-        Alert.alert('Error', 'Kurir Toko hanya tersedia untuk area Malang.');
+      if (!selectedAddress?.address?.toLowerCase().includes('malang')) {
+        if (Platform.OS === 'web') window.alert('Kurir Toko hanya tersedia untuk area Malang.');
+        else Alert.alert('Error', 'Kurir Toko hanya tersedia untuk area Malang.');
         return;
       }
     }
     if (paymentMethod === 'transfer' && !proofImage) {
-      Alert.alert('Error', 'Upload bukti transfer terlebih dahulu.');
+      if (Platform.OS === 'web') window.alert('Upload bukti transfer terlebih dahulu.');
+      else Alert.alert('Error', 'Upload bukti transfer terlebih dahulu.');
       return;
     }
 
@@ -255,17 +256,31 @@ export default function PaymentScreen() {
         });
 
         await clearCart();
-        Alert.alert('Berhasil', 'Pesanan berhasil dibuat! Menunggu verifikasi pembayaran.', [
-          { text: 'OK', onPress: () => router.replace('/customer/orders') },
-        ]);
+        if (Platform.OS === 'web') {
+          window.alert('Pesanan berhasil dibuat! Menunggu verifikasi pembayaran.');
+          router.replace('/customer/orders');
+        } else {
+          Alert.alert('Berhasil', 'Pesanan berhasil dibuat! Menunggu verifikasi pembayaran.', [
+            { text: 'OK', onPress: () => router.replace('/customer/orders') },
+          ]);
+        }
       } else {
         await clearCart();
-        Alert.alert('Berhasil', 'Pesanan berhasil dibuat!', [
-          { text: 'OK', onPress: () => router.replace('/customer/orders') },
-        ]);
+        if (Platform.OS === 'web') {
+          window.alert('Pesanan berhasil dibuat!');
+          router.replace('/customer/orders');
+        } else {
+          Alert.alert('Berhasil', 'Pesanan berhasil dibuat!', [
+            { text: 'OK', onPress: () => router.replace('/customer/orders') },
+          ]);
+        }
       }
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.error || 'Gagal membuat pesanan.');
+      if (Platform.OS === 'web') {
+        window.alert(e?.response?.data?.error || 'Gagal membuat pesanan.');
+      } else {
+        Alert.alert('Error', e?.response?.data?.error || 'Gagal membuat pesanan.');
+      }
     } finally {
       setSubmitting(false);
     }
