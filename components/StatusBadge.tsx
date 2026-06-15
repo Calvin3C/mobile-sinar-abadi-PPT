@@ -8,7 +8,8 @@ interface Props {
 }
 
 export default function StatusBadge({ status }: Props) {
-  const config = StatusColors[status] || StatusColors['pending'];
+  const normalizedStatus = status?.toLowerCase() || 'pending';
+  const config = StatusColors[normalizedStatus] || StatusColors['pending'];
 
   return (
     <View style={[styles.badge, { backgroundColor: config.bg }]}>

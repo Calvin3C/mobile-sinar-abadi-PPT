@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, Pressable, StyleSheet, FlatList,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, ScrollView
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Search, ChevronDown, X, Package } from 'lucide-react-native';
@@ -160,7 +160,7 @@ export default function CatalogScreen() {
             <ChevronDown size={14} color={Colors.textMuted} />
           </Pressable>
           {showCategoryDropdown && (
-            <View style={styles.dropdownMenu}>
+            <ScrollView style={styles.dropdownMenu} nestedScrollEnabled showsVerticalScrollIndicator={false}>
               {CATEGORY_OPTIONS.map((cat) => (
                 <Pressable
                   key={cat}
@@ -175,7 +175,7 @@ export default function CatalogScreen() {
                   </Text>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
           )}
         </View>
 
@@ -191,7 +191,7 @@ export default function CatalogScreen() {
             <ChevronDown size={14} color={Colors.textMuted} />
           </Pressable>
           {showSortDropdown && (
-            <View style={styles.dropdownMenu}>
+            <ScrollView style={styles.dropdownMenu} nestedScrollEnabled showsVerticalScrollIndicator={false}>
               {SORT_OPTIONS.map((opt) => (
                 <Pressable
                   key={opt.value}
@@ -206,7 +206,7 @@ export default function CatalogScreen() {
                   </Text>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
           )}
         </View>
       </View>
@@ -357,6 +357,7 @@ const styles = StyleSheet.create({
   },
   productItem: {
     flex: 1,
+    maxWidth: '48.5%',
     marginBottom: Spacing.md,
   },
   emptyContainer: {

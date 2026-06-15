@@ -1,25 +1,27 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, StyleSheet, SafeAreaView,
+  View, Text, TextInput, Pressable, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Link } from 'expo-router';
-import { Eye, EyeOff, UserPlus, ArrowLeft } from 'lucide-react-native';
-import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
+import { ArrowLeft, ChevronDown } from 'lucide-react-native';
+import { Colors, Fonts, FontSizes, Spacing, Radius } from '../../constants/theme';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function CustomerRegister() {
   const router = useRouter();
   const register = useAuthStore((s) => s.register);
+  const insets = useSafeAreaInsets();
 
   const [form, setForm] = useState({
-    username: '',
     name: '',
-    email: '',
     phone: '',
+    email: '',
+    username: '',
     password: '',
+    confirmPassword: '',
   });
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -29,14 +31,18 @@ export default function CustomerRegister() {
   };
 
   const handleRegister = async () => {
-    const { username, name, email, phone, password } = form;
+    const { username, name, email, phone, password, confirmPassword } = form;
 
-    if (!username.trim() || !name.trim() || !email.trim() || !phone.trim() || !password) {
+    if (!username.trim() || !name.trim() || !email.trim() || !phone.trim() || !password || !confirmPassword) {
       setErrorMessage('Semua field harus diisi.');
       return;
     }
     if (password.length < 5) {
       setErrorMessage('Password minimal 5 karakter.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMessage('Konfirmasi kata sandi tidak cocok.');
       return;
     }
     if (!email.includes('@')) {
@@ -47,11 +53,13 @@ export default function CustomerRegister() {
     setLoading(true);
     setErrorMessage('');
     try {
+      const formattedPhone = phone.startsWith('0') ? phone : `0${phone}`;
+      
       await register({
         username: username.trim(),
         name: name.trim(),
         email: email.trim(),
-        phone: phone.trim(),
+        phone: formattedPhone.trim(),
         password,
       });
       Alert.alert('Berhasil', 'Akun berhasil dibuat! Silakan login.', [
@@ -68,62 +76,103 @@ export default function CustomerRegister() {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
+        <ScrollView 
+          contentContainerStyle={[
+            styles.scrollContent, 
+            { paddingTop: Math.max(insets.top + 10, Platform.OS === 'android' ? 40 : 20) }
+          ]} 
+          keyboardShouldPersistTaps="handled"
+        >
+          <Pressable style={styles.backButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
             <ArrowLeft size={24} color={Colors.textMain} />
           </Pressable>
 
-          <View style={styles.header}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoText}>SA</Text>
-            </View>
-            <Text style={styles.title}>Daftar Akun Baru</Text>
-            <Text style={styles.subtitle}>Buat akun untuk mulai berbelanja</Text>
-          </View>
-
-          <View style={styles.formCard}>
+          <View style={styles.formContainer}>
             {errorMessage ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{errorMessage}</Text>
               </View>
             ) : null}
 
-            {[
-              { key: 'username', label: 'Username', placeholder: 'Contoh: budi123', autoCapitalize: 'none' as const },
-              { key: 'name', label: 'Nama Lengkap', placeholder: 'Contoh: Budi Santoso', autoCapitalize: 'words' as const },
-              { key: 'email', label: 'Email', placeholder: 'Contoh: budi@email.com', autoCapitalize: 'none' as const, keyboardType: 'email-address' as const },
-              { key: 'phone', label: 'Nomor HP', placeholder: 'Contoh: 081234567890', autoCapitalize: 'none' as const, keyboardType: 'phone-pad' as const },
-            ].map((field) => (
-              <View key={field.key} style={styles.inputGroup}>
-                <Text style={styles.label}>{field.label}</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder={field.placeholder}
-                  placeholderTextColor={Colors.textLight}
-                  value={(form as any)[field.key]}
-                  onChangeText={(v) => updateField(field.key, v)}
-                  autoCapitalize={field.autoCapitalize}
-                  keyboardType={field.keyboardType || 'default'}
-                  autoCorrect={false}
-                />
-              </View>
-            ))}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nama Lengkap</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Masukkan nama lengkap"
+                placeholderTextColor={Colors.textLight}
+                value={form.name}
+                onChangeText={(v) => updateField('name', v)}
+                autoCapitalize="words"
+              />
+            </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password (min. 5 karakter)</Text>
-              <View style={styles.passwordContainer}>
+              <Text style={styles.label}>
+                No. Handphone Pengguna <Text style={styles.asterisk}>*</Text>
+              </Text>
+              <View style={styles.phoneRow}>
+                <View style={styles.prefixBox}>
+                  <Text style={styles.prefixText}>+62</Text>
+                  <ChevronDown size={16} color={Colors.textMain} />
+                </View>
                 <TextInput
-                  style={[styles.input, styles.passwordInput]}
-                  placeholder="Masukkan password"
+                  style={[styles.input, styles.phoneInput]}
+                  placeholder="eg, 871037262"
                   placeholderTextColor={Colors.textLight}
-                  value={form.password}
-                  onChangeText={(v) => updateField('password', v)}
-                  secureTextEntry={!showPassword}
+                  value={form.phone}
+                  onChangeText={(v) => updateField('phone', v)}
+                  keyboardType="phone-pad"
                 />
-                <Pressable style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <EyeOff size={20} color={Colors.textMuted} /> : <Eye size={20} color={Colors.textMuted} />}
-                </Pressable>
               </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Masukkan alamat email"
+                placeholderTextColor={Colors.textLight}
+                value={form.email}
+                onChangeText={(v) => updateField('email', v)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Username</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Buat username unik"
+                placeholderTextColor={Colors.textLight}
+                value={form.username}
+                onChangeText={(v) => updateField('username', v)}
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Kata Sandi</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Min. 5 karakter"
+                placeholderTextColor={Colors.textLight}
+                value={form.password}
+                onChangeText={(v) => updateField('password', v)}
+                secureTextEntry
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Konfirmasi Kata Sandi</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ketik ulang kata sandi"
+                placeholderTextColor={Colors.textLight}
+                value={form.confirmPassword}
+                onChangeText={(v) => updateField('confirmPassword', v)}
+                secureTextEntry
+              />
             </View>
 
             <Pressable
@@ -134,10 +183,7 @@ export default function CustomerRegister() {
               {loading ? (
                 <ActivityIndicator color={Colors.white} />
               ) : (
-                <>
-                  <UserPlus size={20} color={Colors.white} />
-                  <Text style={styles.submitButtonText}>Daftar</Text>
-                </>
+                <Text style={styles.submitButtonText}>Daftar Sekarang</Text>
               )}
             </Pressable>
 
@@ -145,7 +191,7 @@ export default function CustomerRegister() {
               <Text style={styles.loginText}>Sudah punya akun? </Text>
               <Link href="/(auth)/login" asChild>
                 <Pressable>
-                  <Text style={styles.loginLink}>Masuk</Text>
+                  <Text style={styles.loginLink}>Masuk di sini</Text>
                 </Pressable>
               </Link>
             </View>
@@ -157,64 +203,103 @@ export default function CustomerRegister() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   scrollContent: {
     flexGrow: 1,
     padding: Spacing.xl,
-    paddingTop: Platform.OS === 'android' ? 40 : Spacing.xl,
   },
   backButton: {
     width: 40, height: 40, borderRadius: Radius.lg,
-    backgroundColor: Colors.white, justifyContent: 'center', alignItems: 'center',
-    ...Shadows.sm, marginBottom: Spacing.xl,
+    backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center',
+    marginBottom: Spacing.lg,
   },
-  header: { alignItems: 'center', marginBottom: Spacing['2xl'] },
-  logoCircle: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center',
-    marginBottom: Spacing.md, ...Shadows.lg,
-  },
-  logoText: { color: Colors.white, fontSize: FontSizes.xl, fontWeight: Fonts.extrabold, letterSpacing: 2 },
-  title: { fontSize: FontSizes.xl, fontWeight: Fonts.bold, color: Colors.textMain },
-  subtitle: { fontSize: FontSizes.sm, color: Colors.textMuted, marginTop: Spacing.xs },
-  formCard: {
-    backgroundColor: Colors.white, borderRadius: Radius.xl,
-    padding: Spacing.xl, ...Shadows.md,
+  formContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: Spacing.sm,
   },
   inputGroup: { marginBottom: Spacing.lg },
-  label: { fontSize: FontSizes.sm, fontWeight: Fonts.semibold, color: Colors.textSecondary, marginBottom: Spacing.sm },
-  input: {
-    backgroundColor: Colors.background, borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-    fontSize: FontSizes.base, color: Colors.textMain,
-    borderWidth: 1, borderColor: Colors.border,
+  label: { 
+    fontSize: FontSizes.sm, 
+    fontWeight: '700', 
+    color: '#1F2937', 
+    marginBottom: Spacing.xs 
   },
-  passwordContainer: { position: 'relative' },
-  passwordInput: { paddingRight: 50 },
-  eyeButton: { position: 'absolute', right: 16, top: 0, bottom: 0, justifyContent: 'center' },
+  asterisk: {
+    color: '#DC2626',
+  },
+  input: {
+    backgroundColor: '#FFFFFF', 
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md, 
+    paddingVertical: Spacing.md,
+    fontSize: FontSizes.sm, 
+    color: '#1F2937',
+    borderWidth: 1, 
+    borderColor: '#E5E7EB',
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  prefixBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    gap: 4,
+  },
+  prefixText: {
+    fontSize: FontSizes.sm,
+    color: '#4B5563',
+  },
+  phoneInput: {
+    flex: 1,
+  },
   submitButton: {
-    backgroundColor: Colors.primary, borderRadius: Radius.lg,
-    paddingVertical: Spacing.md + 2, flexDirection: 'row',
-    justifyContent: 'center', alignItems: 'center', gap: Spacing.sm,
-    marginTop: Spacing.sm, ...Shadows.md,
+    backgroundColor: '#DC2626', // Red color as requested
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md + 2, 
+    flexDirection: 'row',
+    justifyContent: 'center', 
+    alignItems: 'center',
+    marginTop: Spacing.sm,
   },
   submitButtonDisabled: { opacity: 0.7 },
-  submitButtonText: { color: Colors.white, fontSize: FontSizes.md, fontWeight: Fonts.bold },
-  loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.xl },
-  loginText: { fontSize: FontSizes.sm, color: Colors.textMuted },
-  loginLink: { fontSize: FontSizes.sm, color: Colors.primary, fontWeight: Fonts.bold },
+  submitButtonText: { 
+    color: '#FFFFFF', 
+    fontSize: FontSizes.base, 
+    fontWeight: '700' 
+  },
+  loginRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    marginTop: Spacing.xl 
+  },
+  loginText: { 
+    fontSize: FontSizes.sm, 
+    color: '#6B7280' 
+  },
+  loginLink: { 
+    fontSize: FontSizes.sm, 
+    color: '#DC2626', 
+    fontWeight: '600' 
+  },
   errorBox: {
-    backgroundColor: Colors.dangerBg,
+    backgroundColor: '#FEE2E2',
     padding: Spacing.md,
     borderRadius: Radius.md,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: '#F87171',
   },
   errorText: {
-    color: Colors.danger,
+    color: '#DC2626',
     fontSize: FontSizes.sm,
     textAlign: 'center',
-    fontWeight: Fonts.medium,
+    fontWeight: '500',
   },
 });

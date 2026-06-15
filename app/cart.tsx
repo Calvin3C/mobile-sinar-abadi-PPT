@@ -90,7 +90,7 @@ export default function CartScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable style={styles.headerButton} onPress={() => router.back()}>
+        <Pressable style={styles.headerButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
           <ArrowLeft size={22} color={Colors.textMain} />
         </Pressable>
         <Text style={styles.headerTitle}>Keranjang Belanja</Text>

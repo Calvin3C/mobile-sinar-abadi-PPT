@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, StyleSheet, SafeAreaView,
+  View, Text, TextInput, Pressable, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Link } from 'expo-router';
 import { Eye, EyeOff, LogIn, ArrowLeft, Shield, Crown } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
@@ -11,6 +12,7 @@ import { useAuthStore } from '../../stores/authStore';
 export default function CustomerLogin() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
+  const insets = useSafeAreaInsets();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -40,9 +42,15 @@ export default function CustomerLogin() {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView 
+          contentContainerStyle={[
+            styles.scrollContent, 
+            { paddingTop: Math.max(insets.top + 10, Platform.OS === 'android' ? 40 : 20) }
+          ]} 
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Back button */}
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Pressable style={styles.backButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
             <ArrowLeft size={24} color={Colors.textMain} />
           </Pressable>
 
@@ -159,7 +167,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: Spacing.xl,
-    paddingTop: Platform.OS === 'android' ? 40 : Spacing.xl,
   },
   backButton: {
     width: 40,

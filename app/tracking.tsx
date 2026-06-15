@@ -42,11 +42,21 @@ export default function TrackingScreen() {
       setOrderData(orderRes.data);
 
       // Try to fetch tracking
-      if (orderRes.data?.shipping?.waybillId || orderRes.data?.shipping?.biteshipOrderId) {
+      if (orderRes.data?.shipping?.biteshipOrderId) {
         try {
-          const trackId = orderRes.data.shipping.waybillId || orderRes.data.shipping.biteshipOrderId;
-          const trackRes = await api.get(`/biteship/tracking/${trackId}`);
-          setTrackingData(trackRes.data);
+          const trackRes = await api.get(`/biteship/tracking/${orderId}`);
+          const history = trackRes.data?.courier?.history || [];
+          if (history.length > 0) {
+            const biteshipSteps = history.map((h: any) => ({
+              title: h.note || 'Update Pengiriman',
+              time: h.updated_at || '',
+              status: h.status === 'delivered' ? 'completed' : h.status === 'shipping' || h.status === 'dropped' ? 'shipping' : 'pending',
+              description: h.status === 'shipping' && orderRes.data.shipping?.waybillId ? `Resi: ${orderRes.data.shipping.waybillId}` : undefined,
+            }));
+            setTrackingData({ steps: biteshipSteps, currentStatus: trackRes.data?.status || trackRes.data?.courier?.status });
+          } else {
+            setTrackingData(null);
+          }
         } catch {
           setTrackingData(null);
         }
@@ -113,16 +123,16 @@ export default function TrackingScreen() {
       });
     }
 
-    if (orderData.status === 'shipping' || orderData.status === 'completed') {
+    if (orderData.status?.toLowerCase() === 'shipping' || orderData.status?.toLowerCase() === 'completed') {
       steps.push({
         title: 'Sedang Dikirim',
         time: '',
-        status: orderData.status === 'shipping' ? 'shipping' : 'completed',
+        status: orderData.status?.toLowerCase() === 'shipping' ? 'shipping' : 'completed',
         description: orderData.shipping?.trackingNumber ? `Resi: ${orderData.shipping.trackingNumber}` : undefined,
       });
     }
 
-    if (orderData.status === 'completed') {
+    if (orderData.status?.toLowerCase() === 'completed') {
       steps.push({
         title: 'Pesanan Selesai',
         time: '',
@@ -139,8 +149,9 @@ export default function TrackingScreen() {
     }
 
     // Add Biteship tracking steps if available
-    if (trackingData?.steps) {
-      return trackingData.steps;
+    if (trackingData?.steps && trackingData.steps.length > 0) {
+      const initialSteps = steps.filter(s => s.title === 'Pesanan Dibuat' || s.title === 'Pembayaran Dikonfirmasi');
+      return [...initialSteps, ...trackingData.steps];
     }
 
     return steps;
@@ -152,7 +163,7 @@ export default function TrackingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.headerBtn} onPress={() => router.back()}>
+        <Pressable style={styles.headerBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
           <ArrowLeft size={22} color={Colors.textMain} />
         </Pressable>
         <Text style={styles.headerTitle}>Lacak Pengiriman</Text>
@@ -222,7 +233,7 @@ export default function TrackingScreen() {
           )}
 
           {/* Complete button */}
-          {(isDelivered || orderData.status === 'shipping') && orderData.status !== 'completed' && (
+          {(isDelivered || orderData.status?.toLowerCase() === 'shipping') && orderData.status?.toLowerCase() !== 'completed' && (
             <Pressable style={styles.completeButton} onPress={handleComplete}>
               <CheckCircle size={20} color={Colors.white} />
               <Text style={styles.completeButtonText}>Pesanan Diterima</Text>

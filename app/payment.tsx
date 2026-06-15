@@ -18,7 +18,7 @@ import { formatPrice } from '../utils/format';
 import { STORE_ADDRESS, BANK_TRANSFER, BITESHIP_COURIERS } from '../constants/api';
 
 type ShippingTab = 'ekspedisi' | 'kurir' | 'ambil';
-type PaymentMethod = 'midtrans' | 'transfer';
+type PaymentMethod = string;
 
 export default function PaymentScreen() {
   const router = useRouter();
@@ -37,8 +37,16 @@ export default function PaymentScreen() {
   const [loadingRates, setLoadingRates] = useState(false);
 
   // Payment
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('midtrans');
+  const [paymentMethod, setPaymentMethod] = useState<string>('midtrans_gopay');
   const [proofImage, setProofImage] = useState<string | null>(null);
+
+  const midtransMethods = [
+    { id: 'midtrans_gopay', name: 'GoPay/QRIS', badge: 'E-Wallet / Instan' },
+    { id: 'midtrans_bca_va', name: 'BCA Virtual Account', badge: 'Otomatis' },
+    { id: 'midtrans_echannel', name: 'Mandiri Virtual Account', badge: 'Otomatis' },
+    { id: 'midtrans_bni_va', name: 'BNI Virtual Account', badge: 'Otomatis' },
+    { id: 'midtrans_bri_va', name: 'BRI Virtual Account', badge: 'Otomatis' },
+  ];
 
   // Address form
   const [addressForm, setAddressForm] = useState({
@@ -228,14 +236,14 @@ export default function PaymentScreen() {
         courierServiceCode,
         biteshipAreaId: selectedAddress?.biteshipAreaId || '',
         destinationAddress: selectedAddress?.address || STORE_ADDRESS,
-        paymentMethod: paymentMethod === 'midtrans' ? 'Midtrans' : 'Transfer Bank',
-        total: grandTotal,
+        paymentMethod: paymentMethod.startsWith('midtrans') ? paymentMethod : 'Transfer Bank',
+        total: subtotal + ppn, // Send only product total + ppn, backend adds shippingCost
       };
 
       const res = await api.post('/orders', orderPayload);
       const order = res.data;
 
-      if (paymentMethod === 'midtrans' && order.payment?.snapToken) {
+      if (paymentMethod.startsWith('midtrans') && order.payment?.snapToken) {
         // Navigate to Midtrans WebView
         router.replace({
           pathname: '/midtrans-payment',
@@ -289,7 +297,7 @@ export default function PaymentScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.headerBtn} onPress={() => router.back()}>
+        <Pressable style={styles.headerBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
           <ArrowLeft size={22} color={Colors.textMain} />
         </Pressable>
         <Text style={styles.headerTitle}>Pembayaran</Text>
@@ -383,17 +391,20 @@ export default function PaymentScreen() {
         {/* Payment Method */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Metode Pembayaran</Text>
-          <Pressable
-            style={[styles.paymentOption, paymentMethod === 'midtrans' && styles.paymentOptionActive]}
-            onPress={() => setPaymentMethod('midtrans')}
-          >
-            <CreditCard size={20} color={paymentMethod === 'midtrans' ? Colors.primary : Colors.textMuted} />
-            <View style={{ flex: 1, marginLeft: Spacing.md }}>
-              <Text style={styles.paymentTitle}>Midtrans (Online)</Text>
-              <Text style={styles.paymentDesc}>QRIS, VA, GoPay, Kartu Kredit</Text>
-            </View>
-            {paymentMethod === 'midtrans' && <Check size={18} color={Colors.primary} />}
-          </Pressable>
+          {midtransMethods.map(method => (
+            <Pressable
+              key={method.id}
+              style={[styles.paymentOption, paymentMethod === method.id && styles.paymentOptionActive]}
+              onPress={() => setPaymentMethod(method.id)}
+            >
+              <CreditCard size={20} color={paymentMethod === method.id ? Colors.primary : Colors.textMuted} />
+              <View style={{ flex: 1, marginLeft: Spacing.md }}>
+                <Text style={styles.paymentTitle}>{method.name}</Text>
+                <Text style={styles.paymentDesc}>{method.badge}</Text>
+              </View>
+              {paymentMethod === method.id && <Check size={18} color={Colors.primary} />}
+            </Pressable>
+          ))}
 
           <Pressable
             style={[styles.paymentOption, paymentMethod === 'transfer' && styles.paymentOptionActive]}

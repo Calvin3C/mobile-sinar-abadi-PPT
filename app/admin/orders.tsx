@@ -30,7 +30,8 @@ export default function AdminOrders() {
   const fetchOrders = async () => {
     try {
       const res = await api.get('/orders');
-      setOrders(res.data || []);
+      const all = res.data || [];
+      setOrders(all.filter((o: Order) => o.status?.toLowerCase() !== 'completed' && o.status?.toLowerCase() !== 'cancelled'));
     } catch (e) { console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
   };
@@ -38,7 +39,7 @@ export default function AdminOrders() {
   useEffect(() => { fetchOrders(); }, []);
 
   const filteredOrders = orders.filter((o) => {
-    if (statusFilter && o.status !== statusFilter) return false;
+    if (statusFilter && o.status?.toLowerCase() !== statusFilter.toLowerCase()) return false;
     if (searchQuery && !o.id.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });

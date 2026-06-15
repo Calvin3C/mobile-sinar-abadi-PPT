@@ -88,7 +88,7 @@ export const truncate = (text: string, maxLength: number): string => {
 import { API_BASE_URL } from '../constants/api';
 
 /**
- * Fix image URLs from DB (replaces localhost:8000 with the active backend URL)
+ * Fix image URLs from DB (replaces localhost:8000 with the active Go Backend URL)
  */
 export const fixImageUrl = (url?: string): string => {
   if (!url) return '';

@@ -6,6 +6,10 @@ export const API_BASE_URL = Platform.OS === 'web'
   ? 'http://localhost:8080/api' 
   : 'http://192.168.1.11:8080/api';
 
+export const LARAVEL_BASE_URL = Platform.OS === 'web'
+  ? 'http://localhost:8000'
+  : 'http://192.168.1.11:8000';
+
 // Midtrans Snap URL (sandbox)
 export const MIDTRANS_SNAP_URL = 'https://app.sandbox.midtrans.com/snap/v3/redirection';
 

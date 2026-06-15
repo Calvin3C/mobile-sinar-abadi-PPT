@@ -1,8 +1,21 @@
 import React from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import { Pressable, Platform } from 'react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes } from '../../constants/theme';
 
 export default function CustomerLayout() {
+  const router = useRouter();
+
+  const HeaderBack = () => (
+    <Pressable 
+      onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/account')}
+      style={{ marginLeft: Platform.OS === 'ios' ? 0 : 8, marginRight: 16, paddingVertical: 8 }}
+    >
+      <ArrowLeft size={24} color={Colors.textMain} />
+    </Pressable>
+  );
+
   return (
     <Stack
       screenOptions={{
@@ -10,7 +23,7 @@ export default function CustomerLayout() {
         headerTitleStyle: { fontSize: FontSizes.md, fontWeight: Fonts.semibold, color: Colors.textMain },
         headerTintColor: Colors.textMain,
         headerShadowVisible: false,
-        headerBackTitle: 'Kembali',
+        headerLeft: () => <HeaderBack />,
       }}
     >
       <Stack.Screen name="profile" options={{ title: 'Profil Saya' }} />

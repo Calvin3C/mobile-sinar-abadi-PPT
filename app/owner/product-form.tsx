@@ -83,7 +83,11 @@ export default function ProductForm() {
         await api.post('/products', payload);
         Alert.alert('Berhasil', 'Produk berhasil ditambahkan.');
       }
-      router.back();
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.push('/owner/dashboard');
+      }
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.error || 'Gagal menyimpan produk.');
     } finally {

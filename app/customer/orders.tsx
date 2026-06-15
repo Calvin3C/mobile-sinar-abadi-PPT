@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, Pressable, StyleSheet, ScrollView, Alert,
-  ActivityIndicator, RefreshControl, Modal, Image, TextInput,
+  ActivityIndicator, RefreshControl, Modal, Image, TextInput, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -37,7 +37,8 @@ export default function CustomerOrders() {
   const fetchOrders = async () => {
     try {
       const res = await api.get('/orders');
-      setOrders(res.data || []);
+      const all = res.data || [];
+      setOrders(all.filter((o: Order) => o.status?.toLowerCase() !== 'completed'));
     } catch (e) {
       console.error(e);
     } finally {
@@ -49,7 +50,7 @@ export default function CustomerOrders() {
   useEffect(() => { fetchOrders(); }, []);
 
   const filteredOrders = orders.filter((o) => {
-    if (statusFilter && o.status !== statusFilter) return false;
+    if (statusFilter && o.status?.toLowerCase() !== statusFilter.toLowerCase()) return false;
     if (searchQuery && !o.id.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
@@ -178,23 +179,7 @@ export default function CustomerOrders() {
                   </Pressable>
                 )}
 
-                {/* Upload proof */}
-                {order.status === 'pending' && !order.proofUploaded && (
-                  <Pressable
-                    style={styles.uploadButton}
-                    onPress={() => handleUploadProof(order.id)}
-                    disabled={uploadingOrderId === order.id}
-                  >
-                    {uploadingOrderId === order.id ? (
-                      <ActivityIndicator size="small" color={Colors.primary} />
-                    ) : (
-                      <>
-                        <Upload size={14} color={Colors.primary} />
-                        <Text style={styles.uploadButtonText}>Upload Bukti Bayar</Text>
-                      </>
-                    )}
-                  </Pressable>
-                )}
+
 
                 {/* Proof uploaded */}
                 {order.status === 'pending' && order.proofUploaded && (

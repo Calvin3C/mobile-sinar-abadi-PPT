@@ -19,7 +19,7 @@ export default function CustomerHistory() {
     try {
       const res = await api.get('/orders');
       const all = res.data || [];
-      setOrders(all.filter((o: Order) => o.status === 'completed'));
+      setOrders(all.filter((o: Order) => o.status?.toLowerCase() === 'completed'));
     } catch (e) { console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
   };

@@ -18,7 +18,7 @@ export default function OwnerHistory() {
     try {
       const res = await api.get('/orders');
       const all = res.data || [];
-      setOrders(all.filter((o: Order) => o.status === 'completed' || o.status === 'cancelled'));
+      setOrders(all.filter((o: Order) => o.status?.toLowerCase() === 'completed' || o.status?.toLowerCase() === 'cancelled'));
     } catch (e) { console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
   };

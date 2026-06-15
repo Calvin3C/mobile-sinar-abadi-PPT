@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, StyleSheet, SafeAreaView,
+  View, Text, TextInput, Pressable, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Eye, EyeOff, LogIn, ArrowLeft, Crown } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
@@ -11,6 +12,7 @@ import { useAuthStore } from '../../stores/authStore';
 export default function OwnerLogin() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
+  const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,8 +39,14 @@ export default function OwnerLogin() {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
+        <ScrollView 
+          contentContainerStyle={[
+            styles.scrollContent, 
+            { paddingTop: Math.max(insets.top + 10, Platform.OS === 'android' ? 40 : 20) }
+          ]} 
+          keyboardShouldPersistTaps="handled"
+        >
+          <Pressable style={styles.backButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
             <ArrowLeft size={24} color={Colors.textMain} />
           </Pressable>
 
@@ -108,8 +116,8 @@ export default function OwnerLogin() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollContent: {
-    flexGrow: 1, padding: Spacing.xl,
-    paddingTop: Platform.OS === 'android' ? 40 : Spacing.xl,
+    flexGrow: 1,
+    padding: Spacing.xl,
   },
   backButton: {
     width: 40, height: 40, borderRadius: Radius.lg,

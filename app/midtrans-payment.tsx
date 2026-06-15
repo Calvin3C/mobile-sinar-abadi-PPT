@@ -50,20 +50,35 @@ export default function MidtransPaymentScreen() {
         console.error('Failed to cancel order:', e);
       }
     }
-    Alert.alert('Pembayaran Dibatalkan', 'Pesanan Anda telah dibatalkan.', [
-      { text: 'OK', onPress: () => router.replace('/(tabs)') },
-    ]);
+    
+    if (Platform.OS === 'web') {
+      window.alert('Pembayaran Dibatalkan. Pesanan Anda telah dibatalkan.');
+      router.replace('/(tabs)');
+    } else {
+      Alert.alert('Pembayaran Dibatalkan', 'Pesanan Anda telah dibatalkan.', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)') },
+      ]);
+    }
   };
 
   const handleClose = () => {
-    Alert.alert(
-      'Batalkan Pembayaran?',
-      'Jika Anda meninggalkan halaman ini, pesanan akan dibatalkan.',
-      [
-        { text: 'Lanjutkan Bayar', style: 'cancel' },
-        { text: 'Batalkan', style: 'destructive', onPress: handleCancel },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      const confirmCancel = window.confirm(
+        'Batalkan Pembayaran?\nJika Anda meninggalkan halaman ini, pesanan akan dibatalkan.'
+      );
+      if (confirmCancel) {
+        handleCancel();
+      }
+    } else {
+      Alert.alert(
+        'Batalkan Pembayaran?',
+        'Jika Anda meninggalkan halaman ini, pesanan akan dibatalkan.',
+        [
+          { text: 'Lanjutkan Bayar', style: 'cancel' },
+          { text: 'Batalkan', style: 'destructive', onPress: handleCancel },
+        ]
+      );
+    }
   };
 
   if (!snapToken) {
@@ -84,18 +99,27 @@ export default function MidtransPaymentScreen() {
         <View style={styles.headerBtn} />
       </View>
 
-      <WebView
-        source={{ uri: snapUrl }}
-        onNavigationStateChange={handleNavigationChange}
-        startInLoadingState
-        renderLoading={() => (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Memuat halaman pembayaran...</Text>
-          </View>
-        )}
-        style={{ flex: 1 }}
-      />
+      {Platform.OS === 'web' ? (
+        <iframe 
+          src={snapUrl} 
+          style={{ flex: 1, width: '100%', height: '100%', border: 'none' }}
+          title="Midtrans Payment"
+          allow="payment"
+        />
+      ) : (
+        <WebView
+          source={{ uri: snapUrl }}
+          onNavigationStateChange={handleNavigationChange}
+          startInLoadingState
+          renderLoading={() => (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.loadingText}>Memuat halaman pembayaran...</Text>
+            </View>
+          )}
+          style={{ flex: 1 }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -143,5 +167,43 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     fontSize: FontSizes.sm,
     color: Colors.textMuted,
+  },
+  webContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+    backgroundColor: Colors.background,
+  },
+  webText: {
+    fontSize: FontSizes.md,
+    color: Colors.textMain,
+    textAlign: 'center',
+    marginBottom: Spacing.xl,
+    lineHeight: 24,
+  },
+  webButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: Radius.md,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  webButtonText: {
+    color: Colors.white,
+    fontSize: FontSizes.md,
+    fontWeight: Fonts.semibold,
+  },
+  webButtonOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  webButtonOutlineText: {
+    color: Colors.primary,
+    fontSize: FontSizes.md,
+    fontWeight: Fonts.semibold,
   },
 });
