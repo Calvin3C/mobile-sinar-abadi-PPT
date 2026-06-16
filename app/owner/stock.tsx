@@ -9,6 +9,7 @@ import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../consta
 import api from '../../services/api';
 import { Product } from '../../types';
 import EmptyState from '../../components/EmptyState';
+import ManageVariantsModal from '../../components/ManageVariantsModal';
 
 export default function OwnerStock() {
   const router = useRouter();
@@ -22,8 +23,6 @@ export default function OwnerStock() {
   // Variant modal
   const [variantProduct, setVariantProduct] = useState<Product | null>(null);
   const [showVariantModal, setShowVariantModal] = useState(false);
-  const [newVariantName, setNewVariantName] = useState('');
-  const [newVariantPrice, setNewVariantPrice] = useState('');
 
   const fetchProducts = async () => {
     try {
@@ -51,46 +50,15 @@ export default function OwnerStock() {
     return true;
   });
 
-  const handleAddVariant = async () => {
-    if (!variantProduct || !newVariantName.trim()) {
-      Alert.alert('Error', 'Nama varian harus diisi.');
-      return;
-    }
+  const refreshVariantProduct = async () => {
+    if (!variantProduct) return;
     try {
-      await api.post(`/products/${variantProduct.id}/variants`, {
-        name: newVariantName.trim(),
-        price: parseInt(newVariantPrice) || 0,
-      });
-      Alert.alert('Berhasil', 'Varian ditambahkan.');
-      setNewVariantName('');
-      setNewVariantPrice('');
-      fetchProducts();
-      // Refresh variant product
       const res = await api.get(`/products/${variantProduct.id}`);
       setVariantProduct(res.data);
-    } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.error || 'Gagal menambah varian.');
+      fetchProducts();
+    } catch (e) {
+      console.error('Failed to refresh variant product', e);
     }
-  };
-
-  const handleDeleteVariant = async (variantId: number) => {
-    if (!variantProduct) return;
-    Alert.alert('Hapus Varian?', 'Varian akan dihapus permanen.', [
-      { text: 'Batal' },
-      {
-        text: 'Hapus', style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/products/${variantProduct.id}/variants/${variantId}`);
-            fetchProducts();
-            const res = await api.get(`/products/${variantProduct.id}`);
-            setVariantProduct(res.data);
-          } catch (e: any) {
-            Alert.alert('Error', 'Gagal menghapus varian.');
-          }
-        },
-      },
-    ]);
   };
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>;
@@ -163,46 +131,17 @@ export default function OwnerStock() {
         )}
       </ScrollView>
 
-      {/* Variant Modal */}
-      <Modal visible={showVariantModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Varian — {variantProduct?.name}</Text>
-              <Pressable onPress={() => setShowVariantModal(false)}><X size={22} color={Colors.textMain} /></Pressable>
-            </View>
-            <ScrollView>
-              {/* Existing variants */}
-              {variantProduct?.variants?.map((v) => (
-                <View key={v.id} style={styles.variantItem}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.variantName}>{v.name}</Text>
-                    {v.price > 0 && <Text style={styles.variantPrice}>Rp {v.price.toLocaleString()}</Text>}
-                  </View>
-                  <Pressable style={styles.variantDeleteBtn} onPress={() => handleDeleteVariant(v.id)}>
-                    <Trash2 size={16} color={Colors.danger} />
-                  </Pressable>
-                </View>
-              ))}
-
-              {(!variantProduct?.variants || variantProduct.variants.length === 0) && (
-                <Text style={styles.noVariants}>Belum ada varian</Text>
-              )}
-
-              {/* Add variant */}
-              <View style={styles.addVariantSection}>
-                <Text style={styles.addVariantTitle}>Tambah Varian Baru</Text>
-                <TextInput style={styles.formInput} placeholder="Nama varian (contoh: Merah Bata)" placeholderTextColor={Colors.textLight} value={newVariantName} onChangeText={setNewVariantName} />
-                <TextInput style={[styles.formInput, { marginTop: Spacing.sm }]} placeholder="Harga (0 = pakai harga base)" placeholderTextColor={Colors.textLight} value={newVariantPrice} onChangeText={setNewVariantPrice} keyboardType="numeric" />
-                <Pressable style={styles.addVariantBtn} onPress={handleAddVariant}>
-                  <Plus size={16} color={Colors.white} />
-                  <Text style={styles.addVariantBtnText}>Tambah</Text>
-                </Pressable>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      {/* Manage Variants Modal */}
+      {variantProduct && (
+        <ManageVariantsModal
+          visible={showVariantModal}
+          onClose={() => setShowVariantModal(false)}
+          productId={variantProduct.id}
+          productName={variantProduct.name}
+          variants={variantProduct.variants || []}
+          onRefresh={refreshVariantProduct}
+        />
+      )}
     </View>
   );
 }
@@ -231,19 +170,4 @@ const styles = StyleSheet.create({
   variantBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.info },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.primary },
   actionText: { fontSize: FontSizes.xs, fontWeight: Fonts.semibold },
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: Colors.overlay, justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: Colors.white, borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'], maxHeight: '80%', padding: Spacing.xl },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg, paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  modalTitle: { fontSize: FontSizes.md, fontWeight: Fonts.bold, color: Colors.textMain, flex: 1 },
-  variantItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
-  variantName: { fontSize: FontSizes.sm, fontWeight: Fonts.semibold, color: Colors.textMain },
-  variantPrice: { fontSize: FontSizes.xs, color: Colors.textMuted },
-  variantDeleteBtn: { width: 32, height: 32, borderRadius: Radius.md, backgroundColor: Colors.dangerBg, justifyContent: 'center', alignItems: 'center' },
-  noVariants: { fontSize: FontSizes.sm, color: Colors.textMuted, textAlign: 'center', paddingVertical: Spacing.xl },
-  addVariantSection: { marginTop: Spacing.xl, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing.lg },
-  addVariantTitle: { fontSize: FontSizes.sm, fontWeight: Fonts.bold, color: Colors.textMain, marginBottom: Spacing.md },
-  formInput: { backgroundColor: Colors.borderLight, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontSize: FontSizes.sm, color: Colors.textMain, borderWidth: 1, borderColor: Colors.border },
-  addVariantBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, backgroundColor: Colors.primary, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, marginTop: Spacing.md, marginBottom: Spacing['3xl'] },
-  addVariantBtnText: { color: Colors.white, fontSize: FontSizes.sm, fontWeight: Fonts.bold },
 });

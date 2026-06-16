@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Save, ArrowLeft } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import api from '../../services/api';
-import { Product } from '../../types';
+import { Product, ProductVariant } from '../../types';
 
 const CATEGORY_OPTIONS = [
   'Semen', 'Perpipaan', 'Cat Tembok', 'Cat Kayu', 'Besi Beton',
@@ -26,6 +26,7 @@ export default function ProductForm() {
     name: '', category: 'Semen', brand: '', price: '',
     weight: '', length: '1', width: '1', height: '1',
     unit: 'Pcs', minPurchase: '1', img: '', isLarge: false,
+    variants: [] as ProductVariant[],
   });
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(isEdit);
@@ -46,6 +47,7 @@ export default function ProductForm() {
         length: String(p.length), width: String(p.width), height: String(p.height),
         unit: p.unit, minPurchase: String(p.minPurchase), img: p.img || '',
         isLarge: p.isLarge,
+        variants: p.variants || [],
       });
     } catch (e) {
       Alert.alert('Error', 'Gagal memuat data produk.');

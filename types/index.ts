@@ -4,6 +4,7 @@ export interface ProductVariant {
   productId: string;
   name: string;
   price: number;
+  warehouseStocks?: { stock: number }[];
   createdAt: string;
   updatedAt: string;
 }
