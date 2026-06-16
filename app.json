@@ -37,7 +37,8 @@
         {
           "photosPermission": "Aplikasi memerlukan akses ke galeri untuk upload bukti pembayaran."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

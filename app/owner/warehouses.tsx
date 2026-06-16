@@ -1,0 +1,659 @@
+import React, { useEffect, useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl,
+  Pressable, TextInput, Modal, Alert, KeyboardAvoidingView, Platform, Switch
+} from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Package, Truck, ArrowRight, Store, Plus, CheckCircle, XCircle, Search, Edit2, ChevronDown, ChevronUp, Calendar } from 'lucide-react-native';
+import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
+import api from '../../services/api';
+import { formatPrice, formatDate } from '../../utils/format';
+import EmptyState from '../../components/EmptyState';
+import StatusBadge from '../../components/StatusBadge';
+
+type TabType = 'gudang' | 'masuk' | 'keluar';
+
+// Custom Dropdown Component for better iOS and Android compatibility
+const CustomDropdown = ({ label, options, selectedValue, onSelect, placeholder }: { label: string, options: {label: string, value: string}[], selectedValue: string, onSelect: (val: string) => void, placeholder: string }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find(o => o.value === selectedValue);
+  
+  return (
+    <View>
+      <Pressable style={styles.dropdownToggle} onPress={() => setIsOpen(true)}>
+        <Text style={{ color: selectedOption ? Colors.textMain : Colors.textMuted, fontSize: FontSizes.sm }}>
+          {selectedOption ? selectedOption.label : placeholder}
+        </Text>
+        <ChevronDown size={16} color={Colors.textMuted} />
+      </Pressable>
+      
+      <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
+        <Pressable style={styles.dropdownOverlay} onPress={() => setIsOpen(false)}>
+          <View style={styles.dropdownMenu}>
+            <Text style={styles.dropdownTitle}>{label}</Text>
+            <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+              <Pressable style={styles.dropdownItem} onPress={() => { onSelect(''); setIsOpen(false); }}>
+                <Text style={[styles.dropdownItemText, { color: Colors.textMuted }]}>{placeholder}</Text>
+              </Pressable>
+              {options.map((opt) => (
+                <Pressable 
+                  key={opt.value} 
+                  style={[styles.dropdownItem, selectedValue === opt.value && { backgroundColor: Colors.primaryBg }]} 
+                  onPress={() => { onSelect(opt.value); setIsOpen(false); }}
+                >
+                  <Text style={[styles.dropdownItemText, selectedValue === opt.value && { color: Colors.primary, fontWeight: Fonts.bold }]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+};
+
+export default function WarehousesScreen() {
+  const [activeTab, setActiveTab] = useState<TabType>('gudang');
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [inbounds, setInbounds] = useState<any[]>([]);
+  const [outbounds, setOutbounds] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Search Queries
+  const [inboundSearch, setInboundSearch] = useState('');
+  const [outboundSearch, setOutboundSearch] = useState('');
+
+  // Modals state
+  const [isWarehouseModalOpen, setIsWarehouseModalOpen] = useState(false);
+  const [isEditWarehouseModalOpen, setIsEditWarehouseModalOpen] = useState(false);
+  const [warehouseForm, setWarehouseForm] = useState({ id: '', name: '', description: '', isActive: true });
+
+  // Inbound Modal
+  const [isInboundModalOpen, setIsInboundModalOpen] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [inboundForm, setInboundForm] = useState({
+    supplierName: '',
+    expectedDate: '',
+    items: [{ productId: '', warehouseId: '', qty: '1', unitCost: '0' }]
+  });
+
+  // Outbound Expansion
+  const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
+
+  const fetchData = async () => {
+    try {
+      const [whRes, ibRes, outRes, prodRes] = await Promise.all([
+        api.get('/warehouses'),
+        api.get('/inbounds'),
+        api.get('/orders'),
+        api.get('/products')
+      ]);
+      setWarehouses(whRes.data?.data || []);
+      setInbounds(ibRes.data?.data || []);
+      setProducts(prodRes.data?.data || []);
+      
+      const orders = outRes.data || [];
+      const shippingOrders = orders.filter((o: any) => o.status?.toLowerCase() === 'shipping' || o.status?.toLowerCase() === 'completed');
+      setOutbounds(shippingOrders);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleCreateWarehouse = async () => {
+    if (!warehouseForm.name) return Alert.alert('Error', 'Nama gudang wajib diisi');
+    try {
+      await api.post('/warehouses', warehouseForm);
+      Alert.alert('Berhasil', 'Gudang berhasil ditambahkan');
+      setIsWarehouseModalOpen(false);
+      setWarehouseForm({ id: '', name: '', description: '', isActive: true });
+      fetchData();
+    } catch (e: any) {
+      Alert.alert('Error', e?.response?.data?.error || 'Gagal menambahkan gudang');
+    }
+  };
+
+  const handleUpdateWarehouse = async () => {
+    if (!warehouseForm.name) return Alert.alert('Error', 'Nama gudang wajib diisi');
+    try {
+      await api.put(`/warehouses/${warehouseForm.id}`, warehouseForm);
+      Alert.alert('Berhasil', 'Data gudang berhasil diperbarui');
+      setIsEditWarehouseModalOpen(false);
+      setWarehouseForm({ id: '', name: '', description: '', isActive: true });
+      fetchData();
+    } catch (e: any) {
+      Alert.alert('Error', e?.response?.data?.error || 'Gagal memperbarui gudang');
+    }
+  };
+
+  const openEditWarehouse = (wh: any) => {
+    setWarehouseForm({ id: wh.id, name: wh.name, description: wh.description || '', isActive: wh.isActive });
+    setIsEditWarehouseModalOpen(true);
+  };
+
+  const updateInboundStatus = async (id: string, status: string) => {
+    try {
+      await api.put(`/inbounds/${id}/status`, { status });
+      Alert.alert('Berhasil', 'Status berhasil diperbarui');
+      fetchData();
+    } catch (e: any) {
+      Alert.alert('Error', e?.response?.data?.error || 'Gagal memperbarui status');
+    }
+  };
+
+  const handleCreateInbound = async () => {
+    if (!inboundForm.supplierName || !inboundForm.expectedDate) {
+      return Alert.alert('Error', 'Nama supplier dan tanggal estimasi wajib diisi');
+    }
+    
+    // Convert to API format
+    const totalCost = inboundForm.items.reduce((sum, item) => sum + (parseInt(item.qty) * parseInt(item.unitCost)), 0);
+    const payload = {
+      supplierName: inboundForm.supplierName,
+      expectedDate: new Date(inboundForm.expectedDate).toISOString(),
+      totalCost,
+      items: inboundForm.items.map(i => ({
+        productId: i.productId,
+        warehouseId: parseInt(i.warehouseId),
+        qty: parseInt(i.qty),
+        unitCost: parseInt(i.unitCost)
+      }))
+    };
+
+    try {
+      await api.post('/inbounds', payload);
+      Alert.alert('Berhasil', 'Logistik masuk berhasil dibuat');
+      setIsInboundModalOpen(false);
+      setInboundForm({ supplierName: '', expectedDate: '', items: [{ productId: '', warehouseId: warehouses[0]?.id?.toString() || '', qty: '1', unitCost: '0' }] });
+      fetchData();
+    } catch (e: any) {
+      Alert.alert('Error', e?.response?.data?.error || 'Gagal membuat logistik masuk');
+    }
+  };
+
+  const toggleOrderDetails = (orderId: string) => {
+    if (expandedOrders.includes(orderId)) {
+      setExpandedOrders(expandedOrders.filter(id => id !== orderId));
+    } else {
+      setExpandedOrders([...expandedOrders, orderId]);
+    }
+  };
+
+  const getInboundStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Menunggu';
+      case 'received': return 'Diterima';
+      case 'cancelled': return 'Dibatalkan';
+      default: return status;
+    }
+  };
+
+  const getInboundStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return Colors.warning;
+      case 'received': return Colors.success;
+      case 'cancelled': return Colors.danger;
+      default: return Colors.textMuted;
+    }
+  };
+
+  const filteredInbounds = inbounds.filter(ib => 
+    `PO-${ib.id}`.toLowerCase().includes(inboundSearch.toLowerCase()) || 
+    (ib.supplierName || '').toLowerCase().includes(inboundSearch.toLowerCase())
+  );
+
+  const filteredOutbounds = outbounds.filter(o => 
+    o.id.toLowerCase().includes(outboundSearch.toLowerCase()) || 
+    (o.shippingMethod || '').toLowerCase().includes(outboundSearch.toLowerCase())
+  );
+
+  const renderTabs = () => (
+    <View style={styles.tabContainer}>
+      <Pressable style={[styles.tab, activeTab === 'gudang' && styles.tabActive]} onPress={() => setActiveTab('gudang')}>
+        <Store size={18} color={activeTab === 'gudang' ? Colors.primary : Colors.textMuted} />
+        <Text style={[styles.tabText, activeTab === 'gudang' && styles.tabTextActive]}>Daftar Gudang</Text>
+      </Pressable>
+      <Pressable style={[styles.tab, activeTab === 'masuk' && styles.tabActive]} onPress={() => setActiveTab('masuk')}>
+        <Package size={18} color={activeTab === 'masuk' ? Colors.primary : Colors.textMuted} />
+        <Text style={[styles.tabText, activeTab === 'masuk' && styles.tabTextActive]}>Masuk</Text>
+      </Pressable>
+      <Pressable style={[styles.tab, activeTab === 'keluar' && styles.tabActive]} onPress={() => setActiveTab('keluar')}>
+        <Truck size={18} color={activeTab === 'keluar' ? Colors.primary : Colors.textMuted} />
+        <Text style={[styles.tabText, activeTab === 'keluar' && styles.tabTextActive]}>Keluar</Text>
+      </Pressable>
+    </View>
+  );
+
+  const renderGudang = () => (
+    <View>
+      <Pressable style={styles.addBtn} onPress={() => { setWarehouseForm({ id: '', name: '', description: '', isActive: true }); setIsWarehouseModalOpen(true); }}>
+        <Plus size={20} color={Colors.white} />
+        <Text style={styles.addBtnText}>Tambah Gudang</Text>
+      </Pressable>
+      {warehouses.length === 0 ? (
+        <EmptyState title="Belum ada gudang" subtitle="Silakan tambahkan gudang baru." />
+      ) : (
+        warehouses.map((wh) => (
+          <View key={wh.id} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                <Store size={20} color={Colors.textMain} />
+                <Text style={styles.cardTitle}>{wh.name}</Text>
+              </View>
+              <Pressable style={styles.editBtn} onPress={() => openEditWarehouse(wh)}>
+                <Edit2 size={16} color={Colors.primary} />
+                <Text style={styles.editBtnText}>Edit</Text>
+              </Pressable>
+            </View>
+            {wh.description ? <Text style={styles.cardDesc}>{wh.description}</Text> : null}
+            <View style={styles.badgeWrapper}>
+              <Text style={wh.isActive ? styles.badgeText : styles.badgeTextInactive}>{wh.isActive ? 'Aktif' : 'Non-aktif'}</Text>
+            </View>
+          </View>
+        ))
+      )}
+    </View>
+  );
+
+  const renderMasuk = () => (
+    <View>
+      <View style={{ flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.md }}>
+        <View style={styles.searchContainer}>
+          <Search size={18} color={Colors.textMuted} />
+          <TextInput 
+            style={styles.searchInput} 
+            placeholder="Cari PO atau Supplier" 
+            value={inboundSearch} 
+            onChangeText={setInboundSearch}
+          />
+        </View>
+        <Pressable style={styles.addBtnSmall} onPress={() => setIsInboundModalOpen(true)}>
+          <Plus size={20} color={Colors.white} />
+        </Pressable>
+      </View>
+      
+      {filteredInbounds.length === 0 ? (
+        <EmptyState title="Belum ada logistik masuk" subtitle="Data kulakan akan muncul di sini." />
+      ) : (
+        filteredInbounds.map((ib) => (
+          <View key={ib.id} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>PO-{ib.id}</Text>
+              <Text style={[styles.statusText, { color: getInboundStatusColor(ib.status) }]}>
+                {getInboundStatusLabel(ib.status)}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Supplier:</Text>
+              <Text style={styles.infoValue}>{ib.supplierName}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Estimasi:</Text>
+              <Text style={styles.infoValue}>{formatDate(ib.expectedDate)}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Total Biaya:</Text>
+              <Text style={[styles.infoValue, { color: Colors.danger, fontWeight: Fonts.bold }]}>{formatPrice(ib.totalCost)}</Text>
+            </View>
+
+            {ib.status === 'pending' && (
+              <View style={styles.actionRow}>
+                <Pressable style={[styles.actionBtn, { backgroundColor: Colors.danger, marginRight: Spacing.sm }]} onPress={() => updateInboundStatus(ib.id, 'cancelled')}>
+                  <XCircle size={16} color={Colors.white} />
+                  <Text style={styles.actionBtnText}>Batalkan</Text>
+                </Pressable>
+                <Pressable style={[styles.actionBtn, { backgroundColor: Colors.success }]} onPress={() => updateInboundStatus(ib.id, 'received')}>
+                  <CheckCircle size={16} color={Colors.white} />
+                  <Text style={styles.actionBtnText}>Diterima</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        ))
+      )}
+    </View>
+  );
+
+  const renderKeluar = () => (
+    <View>
+      <View style={styles.searchContainer}>
+        <Search size={18} color={Colors.textMuted} />
+        <TextInput 
+          style={styles.searchInput} 
+          placeholder="Cari ID Order atau Metode Pengiriman" 
+          value={outboundSearch} 
+          onChangeText={setOutboundSearch}
+        />
+      </View>
+      {filteredOutbounds.length === 0 ? (
+        <EmptyState title="Belum ada logistik keluar" subtitle="Pesanan yang sedang dikirim akan muncul di sini." />
+      ) : (
+        filteredOutbounds.map((order) => {
+          const isExpanded = expandedOrders.includes(order.id);
+          return (
+            <Pressable key={order.id} style={styles.card} onPress={() => toggleOrderDetails(order.id)}>
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={styles.cardTitle}>{order.id}</Text>
+                  <Text style={styles.cardDate}>{formatDate(order.date)}</Text>
+                </View>
+                <StatusBadge status={order.status} />
+              </View>
+              <View style={styles.infoRow}>
+                <Truck size={14} color={Colors.textMuted} />
+                <Text style={[styles.infoValue, { marginLeft: 6 }]}>{order.shippingMethod}</Text>
+              </View>
+              {order.shipping?.waybillId && (
+                <View style={styles.infoRow}>
+                  <ArrowRight size={14} color={Colors.textMuted} />
+                  <Text style={[styles.infoValue, { marginLeft: 6 }]}>Resi: {order.shipping.waybillId}</Text>
+                </View>
+              )}
+
+              <View style={styles.expandToggle}>
+                <Text style={styles.expandToggleText}>{isExpanded ? 'Sembunyikan Detail' : 'Lihat Detail Item'}</Text>
+                {isExpanded ? <ChevronUp size={16} color={Colors.textMuted} /> : <ChevronDown size={16} color={Colors.textMuted} />}
+              </View>
+
+              {isExpanded && (
+                <View style={styles.expandedContent}>
+                  <Text style={styles.expandedTitle}>Detail Barang Keluar:</Text>
+                  {order.items?.map((item: any, idx: number) => (
+                    <View key={idx} style={styles.expandedItemRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.expandedItemName}>{item.name}</Text>
+                        {item.color && <Text style={styles.expandedItemVariant}>Varian: {item.color}</Text>}
+                      </View>
+                      <Text style={styles.expandedItemQty}>{item.qty}x</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </Pressable>
+          );
+        })
+      )}
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      {renderTabs()}
+      
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[Colors.primary]} />}
+      >
+        {activeTab === 'gudang' && renderGudang()}
+        {activeTab === 'masuk' && renderMasuk()}
+        {activeTab === 'keluar' && renderKeluar()}
+      </ScrollView>
+
+      {/* Modal Tambah/Edit Gudang */}
+      <Modal visible={isWarehouseModalOpen || isEditWarehouseModalOpen} transparent animationType="fade" onRequestClose={() => { setIsWarehouseModalOpen(false); setIsEditWarehouseModalOpen(false); }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{isEditWarehouseModalOpen ? 'Edit Gudang' : 'Tambah Gudang Baru'}</Text>
+            
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Nama Gudang</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Contoh: Gudang Y"
+                value={warehouseForm.name}
+                onChangeText={(text) => setWarehouseForm({ ...warehouseForm, name: text })}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Deskripsi (Opsional)</Text>
+              <TextInput
+                style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                placeholder="Deskripsi gudang..."
+                multiline
+                value={warehouseForm.description}
+                onChangeText={(text) => setWarehouseForm({ ...warehouseForm, description: text })}
+              />
+            </View>
+
+            {isEditWarehouseModalOpen && (
+              <View style={[styles.formGroup, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                <Text style={styles.label}>Status Aktif</Text>
+                <Switch 
+                  value={warehouseForm.isActive} 
+                  onValueChange={(val) => setWarehouseForm({ ...warehouseForm, isActive: val })}
+                  trackColor={{ true: Colors.success, false: Colors.border }}
+                />
+              </View>
+            )}
+
+            <View style={styles.modalActions}>
+              <Pressable style={[styles.modalBtn, styles.modalBtnOutline]} onPress={() => { setIsWarehouseModalOpen(false); setIsEditWarehouseModalOpen(false); }}>
+                <Text style={styles.modalBtnOutlineText}>Batal</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={isEditWarehouseModalOpen ? handleUpdateWarehouse : handleCreateWarehouse}>
+                <Text style={styles.modalBtnPrimaryText}>Simpan</Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Modal Tambah Kulakan */}
+      <Modal visible={isInboundModalOpen} transparent animationType="slide" onRequestClose={() => setIsInboundModalOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+            <Text style={styles.modalTitle}>Catat Logistik Masuk</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Nama Supplier</Text>
+                <TextInput style={styles.input} placeholder="PT Supplier Makmur" value={inboundForm.supplierName} onChangeText={(text) => setInboundForm({ ...inboundForm, supplierName: text })} />
+              </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Tanggal Estimasi Sampai</Text>
+                {Platform.OS === 'web' ? (
+                  React.createElement(TextInput as any, {
+                    type: "date",
+                    style: [styles.input, { outlineWidth: 0 }],
+                    placeholder: "YYYY-MM-DD",
+                    value: inboundForm.expectedDate,
+                    onChangeText: (text: string) => setInboundForm({ ...inboundForm, expectedDate: text })
+                  })
+                ) : (
+                  <>
+                    <Pressable onPress={() => setShowDatePicker(true)} style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 48 }]}>
+                      <Text style={{ color: inboundForm.expectedDate ? Colors.textMain : Colors.textMuted }}>
+                        {inboundForm.expectedDate || "dd/mm/yyyy"}
+                      </Text>
+                      <Calendar size={18} color={Colors.textMain} />
+                    </Pressable>
+                    {showDatePicker && (
+                      <Modal visible={true} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
+                        <Pressable style={styles.dropdownOverlay} onPress={() => setShowDatePicker(false)}>
+                          <Pressable style={[styles.dropdownMenu, { alignItems: 'center', paddingBottom: Spacing.xl }]} onPress={(e) => e.stopPropagation()}>
+                            {Platform.OS === 'ios' && (
+                              <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'flex-end', marginBottom: Spacing.md }}>
+                                <Pressable onPress={() => setShowDatePicker(false)}>
+                                  <Text style={{ color: Colors.primary, fontWeight: Fonts.bold, fontSize: FontSizes.base }}>Selesai</Text>
+                                </Pressable>
+                              </View>
+                            )}
+                            <DateTimePicker
+                              value={inboundForm.expectedDate ? new Date(inboundForm.expectedDate) : new Date()}
+                              mode="date"
+                              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                              themeVariant="light"
+                              onChange={(event, selectedDate) => {
+                                if (Platform.OS === 'android') setShowDatePicker(false);
+                                if (selectedDate) {
+                                  setInboundForm({ ...inboundForm, expectedDate: selectedDate.toISOString().split('T')[0] });
+                                }
+                              }}
+                            />
+                          </Pressable>
+                        </Pressable>
+                      </Modal>
+                    )}
+                  </>
+                )}
+              </View>
+
+              <Text style={[styles.label, { marginTop: Spacing.sm }]}>Item Produk</Text>
+              {inboundForm.items.map((item, index) => (
+                <View key={index} style={{ backgroundColor: Colors.background, padding: Spacing.md, borderRadius: Radius.md, marginBottom: Spacing.sm }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xs }}>
+                    <Text style={styles.label}>Gudang Penerima</Text>
+                    {inboundForm.items.length > 1 && (
+                      <Pressable onPress={() => {
+                        const newItems = inboundForm.items.filter((_, i) => i !== index);
+                        setInboundForm({ ...inboundForm, items: newItems });
+                      }}>
+                        <XCircle size={20} color={Colors.danger} />
+                      </Pressable>
+                    )}
+                  </View>
+                  <CustomDropdown
+                    label="Pilih Gudang Penerima"
+                    placeholder="-- Pilih Gudang --"
+                    options={warehouses.map(w => ({ label: w.name, value: w.id.toString() }))}
+                    selectedValue={item.warehouseId}
+                    onSelect={(val) => {
+                      const newItems = [...inboundForm.items];
+                      newItems[index].warehouseId = val;
+                      setInboundForm({ ...inboundForm, items: newItems });
+                    }}
+                  />
+                  
+                  <Text style={[styles.label, { marginTop: Spacing.sm }]}>Pilih Produk</Text>
+                  <CustomDropdown
+                    label="Pilih Produk"
+                    placeholder="-- Pilih Produk --"
+                    options={products.map(p => ({ label: p.name, value: p.id.toString() }))}
+                    selectedValue={item.productId}
+                    onSelect={(val) => {
+                      const newItems = [...inboundForm.items];
+                      newItems[index].productId = val;
+                      setInboundForm({ ...inboundForm, items: newItems });
+                    }}
+                  />
+                  
+                  <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.label}>Kuantitas (Qty)</Text>
+                      <TextInput style={styles.input} keyboardType="numeric" value={item.qty} onChangeText={(text) => {
+                        const newItems = [...inboundForm.items];
+                        newItems[index].qty = text;
+                        setInboundForm({ ...inboundForm, items: newItems });
+                      }} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.label}>Harga Beli Satuan</Text>
+                      <TextInput style={styles.input} keyboardType="numeric" value={item.unitCost} onChangeText={(text) => {
+                        const newItems = [...inboundForm.items];
+                        newItems[index].unitCost = text;
+                        setInboundForm({ ...inboundForm, items: newItems });
+                      }} />
+                    </View>
+                  </View>
+                </View>
+              ))}
+              
+              <Pressable style={{ alignItems: 'center', padding: Spacing.sm, marginBottom: Spacing.xl }} onPress={() => setInboundForm({ ...inboundForm, items: [...inboundForm.items, { productId: '', warehouseId: warehouses[0]?.id?.toString() || '', qty: '1', unitCost: '0' }] })}>
+                <Text style={{ color: Colors.primary, fontWeight: Fonts.bold }}>+ Tambah Item Lagi</Text>
+              </Pressable>
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <Pressable style={[styles.modalBtn, styles.modalBtnOutline]} onPress={() => setIsInboundModalOpen(false)}>
+                <Text style={styles.modalBtnOutlineText}>Batal</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={handleCreateInbound}>
+                <Text style={styles.modalBtnPrimaryText}>Simpan PO</Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  tabContainer: { flexDirection: 'row', backgroundColor: Colors.white, paddingHorizontal: Spacing.md, paddingTop: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, paddingVertical: Spacing.md, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive: { borderBottomColor: Colors.primary },
+  tabText: { fontSize: FontSizes.sm, fontWeight: Fonts.semibold, color: Colors.textMuted },
+  tabTextActive: { color: Colors.primary },
+  content: { padding: Spacing.lg, paddingBottom: Spacing['4xl'] },
+  
+  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: Radius.md, paddingHorizontal: Spacing.md, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border, height: 48 },
+  searchInput: { flex: 1, marginLeft: Spacing.sm, fontSize: FontSizes.sm, color: Colors.textMain },
+  
+  addBtn: { flexDirection: 'row', backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', padding: Spacing.md, borderRadius: Radius.md, gap: Spacing.xs, marginBottom: Spacing.lg, ...Shadows.sm },
+  addBtnSmall: { backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: Radius.md, ...Shadows.sm },
+  addBtnText: { color: Colors.white, fontWeight: Fonts.bold, fontSize: FontSizes.sm },
+  
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: Colors.primaryBg, borderRadius: Radius.sm },
+  editBtnText: { fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: Colors.primary },
+
+  card: { backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.lg, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border, ...Shadows.sm },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm, justifyContent: 'space-between' },
+  cardTitle: { fontSize: FontSizes.base, fontWeight: Fonts.bold, color: Colors.textMain },
+  cardDate: { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },
+  cardDesc: { fontSize: FontSizes.sm, color: Colors.textSecondary, marginBottom: Spacing.md },
+  statusText: { fontSize: FontSizes.sm, fontWeight: Fonts.bold },
+  
+  badgeWrapper: { alignSelf: 'flex-start', paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.sm, backgroundColor: Colors.successBg },
+  badgeText: { color: Colors.success, fontSize: FontSizes.xs, fontWeight: Fonts.bold },
+  badgeTextInactive: { color: Colors.danger, fontSize: FontSizes.xs, fontWeight: Fonts.bold },
+  
+  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
+  infoLabel: { fontSize: FontSizes.sm, color: Colors.textMuted, width: 80 },
+  infoValue: { fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.medium, flex: 1 },
+  
+  actionRow: { flexDirection: 'row', marginTop: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingTop: Spacing.md },
+  actionBtn: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.sm, borderRadius: Radius.sm },
+  actionBtnText: { color: Colors.white, fontSize: FontSizes.xs, fontWeight: Fonts.bold },
+  
+  expandToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.borderLight },
+  expandToggleText: { fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.semibold },
+  expandedContent: { marginTop: Spacing.md, backgroundColor: Colors.background, padding: Spacing.md, borderRadius: Radius.md },
+  expandedTitle: { fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: Colors.textSecondary, marginBottom: Spacing.sm },
+  expandedItemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.xs, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  expandedItemName: { fontSize: FontSizes.sm, fontWeight: Fonts.semibold, color: Colors.textMain },
+  expandedItemVariant: { fontSize: FontSizes.xs, color: Colors.textMuted },
+  expandedItemQty: { fontSize: FontSizes.sm, fontWeight: Fonts.bold, color: Colors.success },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: Spacing.lg },
+  modalContent: { backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.xl, width: '100%', maxWidth: 400, ...Shadows.lg },
+  modalTitle: { fontSize: FontSizes.lg, fontWeight: Fonts.bold, color: Colors.textMain, marginBottom: Spacing.lg },
+  formGroup: { marginBottom: Spacing.xl },
+  label: { fontSize: FontSizes.sm, fontWeight: Fonts.semibold, color: Colors.textSecondary, marginBottom: Spacing.xs },
+  input: { borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSizes.base, color: Colors.textMain },
+  dropdownToggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, padding: Spacing.md, backgroundColor: Colors.white },
+  dropdownOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  dropdownMenu: { backgroundColor: Colors.white, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.lg, paddingBottom: Spacing['4xl'] },
+  dropdownTitle: { fontSize: FontSizes.base, fontWeight: Fonts.bold, color: Colors.textMain, marginBottom: Spacing.md, textAlign: 'center' },
+  dropdownItem: { paddingVertical: Spacing.md, paddingHorizontal: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, borderRadius: Radius.sm },
+  dropdownItemText: { fontSize: FontSizes.sm, color: Colors.textMain },
+  modalActions: { flexDirection: 'row', gap: Spacing.md },
+  modalBtn: { flex: 1, paddingVertical: Spacing.md, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  modalBtnOutline: { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
+  modalBtnPrimary: { backgroundColor: Colors.primary },
+  modalBtnOutlineText: { color: Colors.textMain, fontWeight: Fonts.bold, fontSize: FontSizes.sm },
+  modalBtnPrimaryText: { color: Colors.white, fontWeight: Fonts.bold, fontSize: FontSizes.sm },
+});

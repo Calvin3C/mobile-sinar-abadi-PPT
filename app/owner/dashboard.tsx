@@ -5,7 +5,7 @@ import {
 import { useRouter } from 'expo-router';
 import {
   DollarSign, CheckCircle, AlertTriangle, Users, Package, CreditCard,
-  History, Shield, ChevronRight, BarChart3,
+  History, Shield, ChevronRight, BarChart3, Store,
 } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import api from '../../services/api';
@@ -45,6 +45,7 @@ export default function OwnerDashboard() {
   useEffect(() => { fetchStats(); }, []);
 
   const menuItems = [
+    { label: 'Manajemen Gudang', desc: 'Kelola gudang & logistik', icon: <Store size={22} color={Colors.warning} />, bg: Colors.warningBg, route: '/owner/warehouses' },
     { label: 'Stok Produk', desc: 'Kelola stok & produk', icon: <Package size={22} color={Colors.primary} />, bg: Colors.primaryBg, route: '/owner/stock' },
     { label: 'Validasi Pembayaran', desc: 'Verifikasi pembayaran masuk', icon: <CreditCard size={22} color={Colors.success} />, bg: Colors.successBg, route: '/owner/validate-payment' },
     { label: 'Histori Transaksi', desc: 'Lihat semua transaksi', icon: <History size={22} color={Colors.info} />, bg: Colors.infoBg, route: '/owner/history' },

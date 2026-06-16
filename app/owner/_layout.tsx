@@ -9,7 +9,7 @@ export default function OwnerLayout() {
 
   const HeaderBack = () => (
     <Pressable 
-      onPress={() => router.canGoBack() ? router.back() : router.replace('/owner/dashboard')}
+      onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/account')}
       style={{ marginLeft: Platform.OS === 'ios' ? 0 : 8, marginRight: 16, paddingVertical: 8 }}
     >
       <ArrowLeft size={24} color={Colors.textMain} />
@@ -26,7 +26,8 @@ export default function OwnerLayout() {
         headerLeft: () => <HeaderBack />,
       }}
     >
-      <Stack.Screen name="dashboard" options={{ title: 'Dashboard Owner', headerLeft: () => null }} />
+      <Stack.Screen name="dashboard" options={{ title: 'Dashboard Owner' }} />
+      <Stack.Screen name="warehouses" options={{ title: 'Manajemen Gudang' }} />
       <Stack.Screen name="stock" options={{ title: 'Stok Produk' }} />
       <Stack.Screen name="product-form" options={{ title: 'Form Produk' }} />
       <Stack.Screen name="validate-payment" options={{ title: 'Validasi Pembayaran' }} />

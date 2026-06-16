@@ -18,7 +18,7 @@ export default function OwnerHistory() {
     try {
       const res = await api.get('/orders');
       const all = res.data || [];
-      setOrders(all.filter((o: Order) => o.status?.toLowerCase() === 'completed' || o.status?.toLowerCase() === 'cancelled'));
+      setOrders(all.filter((o: Order) => o.status?.toLowerCase() === 'completed'));
     } catch (e) { console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
   };
@@ -36,7 +36,7 @@ export default function OwnerHistory() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchOrders(); }} colors={[Colors.primary]} />}
     >
       {orders.length === 0 ? (
-        <EmptyState title="Belum ada riwayat" subtitle="Transaksi selesai atau dibatalkan akan muncul di sini" />
+        <EmptyState title="Belum ada riwayat" subtitle="Transaksi selesai akan muncul di sini" />
       ) : (
         orders.map((order) => (
           <View key={order.id} style={styles.orderCard}>
@@ -48,7 +48,7 @@ export default function OwnerHistory() {
               <StatusBadge status={order.status} />
             </View>
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>{order.user?.name || 'Customer'}</Text>
+              <Text style={styles.userName}>{order.customer || 'Customer'}</Text>
             </View>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total ({order.items?.length || 0} item)</Text>

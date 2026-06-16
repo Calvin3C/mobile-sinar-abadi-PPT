@@ -12,6 +12,7 @@ import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../consta
 import api from '../../services/api';
 import { Order } from '../../types';
 import { formatPrice, formatDate } from '../../utils/format';
+import { API_BASE_URL } from '../../constants/api';
 import StatusBadge from '../../components/StatusBadge';
 import EmptyState from '../../components/EmptyState';
 
@@ -192,7 +193,22 @@ export default function CustomerOrders() {
                 {order.proofUploaded && order.proofUrl && (
                   <Pressable
                     style={styles.viewProofButton}
-                    onPress={() => { setProofUrl(order.proofUrl); setShowProofModal(true); }}
+                    onPress={() => {
+                      let url = order.proofUrl || '';
+                      if (url.includes('/storage/proofs/')) {
+                        const pathInfo = url.substring(url.indexOf('/storage/proofs/'));
+                        const baseUrl = API_BASE_URL.replace('/api', '');
+                        url = `${baseUrl}${pathInfo}`;
+                      } else if (url.startsWith('/')) {
+                        const baseUrl = API_BASE_URL.replace('/api', '');
+                        url = `${baseUrl}${url}`;
+                      } else if (url.includes(':8000')) {
+                        const baseUrl = API_BASE_URL.replace('/api', '');
+                        url = url.replace(/^https?:\/\/[^\/]+:8000/, baseUrl);
+                      }
+                      setProofUrl(url); 
+                      setShowProofModal(true); 
+                    }}
                   >
                     <Eye size={14} color={Colors.info} />
                     <Text style={[styles.uploadButtonText, { color: Colors.info }]}>Lihat Bukti</Text>

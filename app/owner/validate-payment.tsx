@@ -6,6 +6,7 @@ import {
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import { Check, X, Eye, Package } from 'lucide-react-native';
 import api from '../../services/api';
+import { API_BASE_URL, LARAVEL_BASE_URL } from '../../constants/api';
 import { Order } from '../../types';
 import { formatPrice, formatDate } from '../../utils/format';
 import EmptyState from '../../components/EmptyState';
@@ -25,8 +26,7 @@ export default function ValidatePaymentScreen() {
       const allOrders = res.data || [];
       // Filter pending orders with uploaded proofs
       const pendingTransfers = allOrders.filter((o: Order) =>
-        o.status === 'pending' &&
-        o.paymentMethod === 'Transfer Bank' &&
+        o.status?.toLowerCase() === 'pending' &&
         o.proofUploaded
       );
       setOrders(pendingTransfers);
@@ -92,8 +92,8 @@ export default function ValidatePaymentScreen() {
               </View>
 
               <View style={styles.userInfo}>
-                <Text style={styles.userName}>{order.user?.name || 'Customer'}</Text>
-                <Text style={styles.userPhone}>{order.user?.phone || '-'}</Text>
+                <Text style={styles.userName}>{order.customer || 'Customer'}</Text>
+                <Text style={styles.userPhone}>{order.phone || '-'}</Text>
               </View>
 
               <View style={styles.itemsSummary}>
@@ -105,7 +105,20 @@ export default function ValidatePaymentScreen() {
                 <Pressable
                   style={styles.viewProofBtn}
                   onPress={() => {
-                    setProofUrl(order.proofUrl || '');
+                    let url = order.proofUrl || '';
+                    if (url.includes('/storage/proofs/')) {
+                      const pathInfo = url.substring(url.indexOf('/storage/proofs/'));
+                      const baseUrl = API_BASE_URL.replace('/api', '');
+                      url = `${baseUrl}${pathInfo}`;
+                    } else if (url.startsWith('/')) {
+                      const baseUrl = API_BASE_URL.replace('/api', '');
+                      url = `${baseUrl}${url}`;
+                    } else if (url.includes(':8000')) {
+                      const baseUrl = API_BASE_URL.replace('/api', '');
+                      url = url.replace(/^https?:\/\/[^\/]+:8000/, baseUrl);
+                    }
+                    console.log('Proof URL to open:', url);
+                    setProofUrl(url);
                     setShowProof(true);
                   }}
                 >
@@ -147,7 +160,10 @@ export default function ValidatePaymentScreen() {
             <X size={24} color={Colors.white} />
           </Pressable>
           {proofUrl ? (
-            <Image source={{ uri: proofUrl }} style={styles.proofImage} resizeMode="contain" />
+            <View style={{ width: '100%', height: '80%', alignItems: 'center' }}>
+              <Image source={{ uri: proofUrl }} style={styles.proofImage} resizeMode="contain" />
+              <Text style={{ color: Colors.white, fontSize: 10, marginTop: 10 }}>{proofUrl}</Text>
+            </View>
           ) : (
             <Text style={{ color: Colors.white }}>Gambar tidak tersedia</Text>
           )}

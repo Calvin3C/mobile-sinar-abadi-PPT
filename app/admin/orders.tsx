@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, StyleSheet, ScrollView, Alert,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Modal,
 } from 'react-native';
 import { Search, Truck, Store, Package, ChevronDown } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
@@ -27,6 +27,10 @@ export default function AdminOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
 
+  const [isShippingModalOpen, setIsShippingModalOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [shippingCode, setShippingCode] = useState('');
+
   const fetchOrders = async () => {
     try {
       const res = await api.get('/orders');
@@ -44,10 +48,10 @@ export default function AdminOrders() {
     return true;
   });
 
-  const updateStatus = async (orderId: string, newStatus: string) => {
+  const updateStatus = async (orderId: string, newStatus: string, code?: string) => {
     setProcessingId(orderId);
     try {
-      await api.put(`/orders/${orderId}/status`, { status: newStatus });
+      await api.put(`/orders/${orderId}/status`, { status: newStatus, shippingCode: code || '' });
       Alert.alert('Berhasil', `Status pesanan diupdate ke ${newStatus}.`);
       fetchOrders();
     } catch (e: any) {
@@ -57,40 +61,63 @@ export default function AdminOrders() {
     }
   };
 
+  const handleUpdateShipping = () => {
+    if (!shippingCode) {
+      Alert.alert('Error', 'Silakan masukkan nomor resi.');
+      return;
+    }
+    updateStatus(selectedOrderId, 'shipping', shippingCode);
+    setIsShippingModalOpen(false);
+  };
+
   const getShippingType = (method: string) => {
-    if (!method) return 'ekspedisi';
+    if (!method) return 'kurir';
     const lower = method.toLowerCase();
     if (lower.includes('ambil')) return 'ambil';
-    if (lower.includes('kurir toko') || lower.includes('sinar abadi')) return 'kurir';
-    return 'ekspedisi';
+    if (lower.includes('kurir toko') || lower.includes('sinar abadi')) return 'kurir_toko';
+    return 'kurir';
   };
 
   const renderActions = (order: Order) => {
     const type = getShippingType(order.shippingMethod);
 
-    if (order.status === 'success') {
-      if (type === 'ambil') {
-        return (
-          <Pressable style={styles.actionBtn} onPress={() => updateStatus(order.id, 'completed')} disabled={processingId === order.id}>
-            {processingId === order.id ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.actionBtnText}>Selesai</Text>}
-          </Pressable>
-        );
+    if (order.status?.toUpperCase() !== 'PENDING' && order.status?.toUpperCase() !== 'CANCELLED') {
+      if (type === 'kurir') {
+        if (order.status?.toUpperCase() === 'SUCCESS' || order.status?.toUpperCase() === 'VERIFIED') {
+          return (
+            <Pressable style={styles.actionBtn} onPress={() => {
+              setSelectedOrderId(order.id);
+              setShippingCode('');
+              setIsShippingModalOpen(true);
+            }}>
+              <Text style={styles.actionBtnText}>Cetak Resi</Text>
+            </Pressable>
+          );
+        }
+      } else if (type === 'ambil') {
+        if (order.status?.toUpperCase() === 'SUCCESS' || order.status?.toUpperCase() === 'VERIFIED') {
+          return (
+            <Pressable style={styles.actionBtn} onPress={() => updateStatus(order.id, 'completed', 'Diambil di toko')} disabled={processingId === order.id}>
+              {processingId === order.id ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.actionBtnText}>Selesai</Text>}
+            </Pressable>
+          );
+        }
+      } else if (type === 'kurir_toko') {
+        if (order.status?.toUpperCase() === 'SUCCESS' || order.status?.toUpperCase() === 'VERIFIED' || order.status?.toUpperCase() === 'SHIPPING') {
+          return (
+            <View style={styles.actionRow}>
+              {order.status?.toUpperCase() !== 'SHIPPING' && (
+                <Pressable style={[styles.actionBtn, { backgroundColor: Colors.warning, marginRight: 8 }]} onPress={() => updateStatus(order.id, 'shipping', 'Kurir Toko - Dalam Pengiriman')} disabled={processingId === order.id}>
+                  {processingId === order.id ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.actionBtnText}>Kirim</Text>}
+                </Pressable>
+              )}
+              <Pressable style={[styles.actionBtn, { backgroundColor: Colors.success }]} onPress={() => updateStatus(order.id, 'completed', 'Kurir Toko')} disabled={processingId === order.id}>
+                {processingId === order.id ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.actionBtnText}>Selesai</Text>}
+              </Pressable>
+            </View>
+          );
+        }
       }
-      return (
-        <Pressable style={styles.actionBtn} onPress={() => updateStatus(order.id, 'shipping')} disabled={processingId === order.id}>
-          {processingId === order.id ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.actionBtnText}>Kirim Pesanan</Text>}
-        </Pressable>
-      );
-    }
-
-    if (order.status === 'shipping' && type === 'kurir') {
-      return (
-        <View style={styles.actionRow}>
-          <Pressable style={styles.actionBtn} onPress={() => updateStatus(order.id, 'completed')} disabled={processingId === order.id}>
-            <Text style={styles.actionBtnText}>Selesai</Text>
-          </Pressable>
-        </View>
-      );
     }
 
     return null;
@@ -154,6 +181,39 @@ export default function AdminOrders() {
           ))
         )}
       </ScrollView>
+
+      {/* Modal Resi */}
+      <Modal
+        visible={isShippingModalOpen}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsShippingModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Input Kode Resi Pengiriman</Text>
+            
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Nomor Resi / Bukti Jalan</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Contoh: JT-12345678"
+                value={shippingCode}
+                onChangeText={setShippingCode}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable style={[styles.modalBtn, styles.modalBtnOutline]} onPress={() => setIsShippingModalOpen(false)}>
+                <Text style={styles.modalBtnOutlineText}>Batal</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={handleUpdateShipping}>
+                <Text style={styles.modalBtnPrimaryText}>Kirim Barang</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -182,4 +242,16 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
   actionBtn: { flex: 1, backgroundColor: Colors.primary, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center', marginTop: Spacing.md, ...Shadows.sm },
   actionBtnText: { color: Colors.white, fontSize: FontSizes.sm, fontWeight: Fonts.bold },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: Spacing.lg },
+  modalContent: { backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.xl, width: '100%', maxWidth: 400, ...Shadows.lg },
+  modalTitle: { fontSize: FontSizes.lg, fontWeight: Fonts.bold, color: Colors.textMain, marginBottom: Spacing.lg },
+  formGroup: { marginBottom: Spacing.xl },
+  label: { fontSize: FontSizes.sm, fontWeight: Fonts.semibold, color: Colors.textSecondary, marginBottom: Spacing.xs },
+  input: { borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSizes.base, color: Colors.textMain },
+  modalActions: { flexDirection: 'row', gap: Spacing.md },
+  modalBtn: { flex: 1, paddingVertical: Spacing.md, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  modalBtnOutline: { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
+  modalBtnPrimary: { backgroundColor: Colors.primary },
+  modalBtnOutlineText: { color: Colors.textMain, fontWeight: Fonts.bold, fontSize: FontSizes.sm },
+  modalBtnPrimaryText: { color: Colors.white, fontWeight: Fonts.bold, fontSize: FontSizes.sm },
 });
