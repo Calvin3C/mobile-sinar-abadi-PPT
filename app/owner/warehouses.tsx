@@ -4,14 +4,14 @@ import {
   Pressable, TextInput, Modal, Alert, KeyboardAvoidingView, Platform, Switch
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Package, Truck, ArrowRight, Store, Plus, CheckCircle, XCircle, Search, Edit2, ChevronDown, ChevronUp, Calendar } from 'lucide-react-native';
+import { Package, Truck, ArrowRight, ArrowLeftRight, Store, Plus, CheckCircle, XCircle, Search, Edit2, ChevronDown, ChevronUp, Calendar } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import api from '../../services/api';
 import { formatPrice, formatDate } from '../../utils/format';
 import EmptyState from '../../components/EmptyState';
 import StatusBadge from '../../components/StatusBadge';
 
-type TabType = 'gudang' | 'masuk' | 'keluar';
+type TabType = 'gudang' | 'masuk' | 'keluar' | 'transfer';
 
 // Custom Dropdown Component for better iOS and Android compatibility
 const CustomDropdown = ({ label, options, selectedValue, onSelect, placeholder }: { label: string, options: {label: string, value: string}[], selectedValue: string, onSelect: (val: string) => void, placeholder: string }) => {
@@ -59,6 +59,7 @@ export default function WarehousesScreen() {
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [inbounds, setInbounds] = useState<any[]>([]);
   const [outbounds, setOutbounds] = useState<any[]>([]);
+  const [transfers, setTransfers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   
   const [loading, setLoading] = useState(true);
@@ -67,6 +68,7 @@ export default function WarehousesScreen() {
   // Search Queries
   const [inboundSearch, setInboundSearch] = useState('');
   const [outboundSearch, setOutboundSearch] = useState('');
+  const [transferSearch, setTransferSearch] = useState('');
 
   // Modals state
   const [isWarehouseModalOpen, setIsWarehouseModalOpen] = useState(false);
@@ -82,20 +84,23 @@ export default function WarehousesScreen() {
     items: [{ productId: '', warehouseId: '', qty: '1', unitCost: '0' }]
   });
 
+
   // Outbound Expansion
   const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
 
   const fetchData = async () => {
     try {
-      const [whRes, ibRes, outRes, prodRes] = await Promise.all([
+      const [whRes, ibRes, outRes, prodRes, trRes] = await Promise.all([
         api.get('/warehouses'),
         api.get('/inbounds'),
         api.get('/orders'),
-        api.get('/products')
+        api.get('/products'),
+        api.get('/stock-transfers').catch(() => ({ data: { data: [] } })),
       ]);
       setWarehouses(whRes.data?.data || []);
       setInbounds(ibRes.data?.data || []);
       setProducts(prodRes.data?.data || []);
+      setTransfers(trRes.data?.data || []);
       
       const orders = outRes.data || [];
       const shippingOrders = orders.filter((o: any) => o.status?.toLowerCase() === 'shipping' || o.status?.toLowerCase() === 'completed');
@@ -219,6 +224,14 @@ export default function WarehousesScreen() {
     (o.shippingMethod || '').toLowerCase().includes(outboundSearch.toLowerCase())
   );
 
+  const filteredTransfers = transfers.filter(t =>
+    (t.product?.name || '').toLowerCase().includes(transferSearch.toLowerCase()) ||
+    (t.fromWarehouse?.name || '').toLowerCase().includes(transferSearch.toLowerCase()) ||
+    (t.toWarehouse?.name || '').toLowerCase().includes(transferSearch.toLowerCase()) ||
+    (t.notes || '').toLowerCase().includes(transferSearch.toLowerCase())
+  );
+
+
   const renderTabs = () => (
     <View style={styles.tabContainer}>
       <Pressable style={[styles.tab, activeTab === 'gudang' && styles.tabActive]} onPress={() => setActiveTab('gudang')}>
@@ -232,6 +245,10 @@ export default function WarehousesScreen() {
       <Pressable style={[styles.tab, activeTab === 'keluar' && styles.tabActive]} onPress={() => setActiveTab('keluar')}>
         <Truck size={18} color={activeTab === 'keluar' ? Colors.primary : Colors.textMuted} />
         <Text style={[styles.tabText, activeTab === 'keluar' && styles.tabTextActive]}>Keluar</Text>
+      </Pressable>
+      <Pressable style={[styles.tab, activeTab === 'transfer' && styles.tabActive]} onPress={() => setActiveTab('transfer')}>
+        <ArrowLeftRight size={18} color={activeTab === 'transfer' ? Colors.primary : Colors.textMuted} />
+        <Text style={[styles.tabText, activeTab === 'transfer' && styles.tabTextActive]}>Transfer</Text>
       </Pressable>
     </View>
   );
@@ -388,6 +405,52 @@ export default function WarehousesScreen() {
     </View>
   );
 
+  const renderTransfer = () => (
+    <View>
+      <View style={{ flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.md }}>
+        <View style={[styles.searchContainer, { flex: 1 }]}>
+          <Search size={18} color={Colors.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Cari produk atau gudang"
+            value={transferSearch}
+            onChangeText={setTransferSearch}
+          />
+        </View>
+      </View>
+
+      {filteredTransfers.length === 0 ? (
+        <EmptyState title="Belum ada transfer stok" subtitle="Riwayat perpindahan stok antar gudang akan muncul di sini." />
+      ) : (
+        filteredTransfers.map((tr: any) => (
+          <View key={tr.id} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{tr.product?.name || `Produk #${tr.productId}`}</Text>
+              <Text style={[styles.statusText, { color: Colors.info }]}>{tr.quantity} unit</Text>
+            </View>
+            <View style={[styles.infoRow, { marginTop: Spacing.sm }]}>
+              <View style={styles.transferRoute}>
+                <View style={styles.transferWarehouse}>
+                  <Store size={14} color={Colors.danger} />
+                  <Text style={styles.transferWarehouseText}>{tr.fromWarehouse?.name || `Gudang #${tr.fromWarehouseId}`}</Text>
+                </View>
+                <ArrowRight size={16} color={Colors.textMuted} />
+                <View style={styles.transferWarehouse}>
+                  <Store size={14} color={Colors.success} />
+                  <Text style={styles.transferWarehouseText}>{tr.toWarehouse?.name || `Gudang #${tr.toWarehouseId}`}</Text>
+                </View>
+              </View>
+            </View>
+            {tr.notes && (
+              <Text style={[styles.cardDesc, { marginTop: Spacing.sm, marginBottom: 0 }]}>{tr.notes}</Text>
+            )}
+            <Text style={[styles.cardDate, { marginTop: Spacing.sm }]}>{formatDate(tr.createdAt)}</Text>
+          </View>
+        ))
+      )}
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       {renderTabs()}
@@ -399,6 +462,7 @@ export default function WarehousesScreen() {
         {activeTab === 'gudang' && renderGudang()}
         {activeTab === 'masuk' && renderMasuk()}
         {activeTab === 'keluar' && renderKeluar()}
+        {activeTab === 'transfer' && renderTransfer()}
       </ScrollView>
 
       {/* Modal Tambah/Edit Gudang */}
@@ -586,6 +650,8 @@ export default function WarehousesScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+
     </View>
   );
 }
@@ -656,4 +722,9 @@ const styles = StyleSheet.create({
   modalBtnPrimary: { backgroundColor: Colors.primary },
   modalBtnOutlineText: { color: Colors.textMain, fontWeight: Fonts.bold, fontSize: FontSizes.sm },
   modalBtnPrimaryText: { color: Colors.white, fontWeight: Fonts.bold, fontSize: FontSizes.sm },
+
+  // Transfer styles
+  transferRoute: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
+  transferWarehouse: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
+  transferWarehouseText: { fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.medium, flexShrink: 1 },
 });

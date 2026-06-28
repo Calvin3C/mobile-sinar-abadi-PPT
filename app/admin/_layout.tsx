@@ -26,8 +26,9 @@ export default function AdminLayout() {
         headerLeft: () => <HeaderBack />,
       }}
     >
-      <Stack.Screen name="dashboard" options={{ title: 'Dashboard Admin', headerLeft: () => null }} />
+      <Stack.Screen name="dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="orders" options={{ title: 'Update Status Order' }} />
+      <Stack.Screen name="delivery" options={{ headerShown: false }} />
       <Stack.Screen name="customers" options={{ title: 'Daftar Customer' }} />
       <Stack.Screen name="profile" options={{ title: 'Profil Admin' }} />
     </Stack>

@@ -36,6 +36,11 @@ export default function PaymentScreen() {
   const [selectedRate, setSelectedRate] = useState<CourierRate | null>(null);
   const [loadingRates, setLoadingRates] = useState(false);
 
+  // Kurir Toko Sinar Abadi
+  const [deliveryLocations, setDeliveryLocations] = useState<any[]>([]);
+  const [selectedDeliveryLocation, setSelectedDeliveryLocation] = useState<any | null>(null);
+  const [fetchingLocations, setFetchingLocations] = useState(false);
+
   // Payment
   const [paymentMethod, setPaymentMethod] = useState<string>('midtrans_gopay');
   const [proofImage, setProofImage] = useState<string | null>(null);
@@ -62,13 +67,15 @@ export default function PaymentScreen() {
   const subtotal = getTotal();
   const ppn = Math.round(subtotal * 0.11);
   const shippingCost = (() => {
-    if (shippingTab === 'kurir' || shippingTab === 'ambil') return 0;
+    if (shippingTab === 'kurir') return selectedDeliveryLocation ? selectedDeliveryLocation.shippingCost : 0;
+    if (shippingTab === 'ambil') return 0;
     return selectedRate?.price || 0;
   })();
   const grandTotal = subtotal + ppn + shippingCost;
 
   useEffect(() => {
     fetchAddresses();
+    fetchDeliveryLocations();
   }, []);
 
   useEffect(() => {
@@ -76,6 +83,40 @@ export default function PaymentScreen() {
       fetchRates();
     }
   }, [selectedAddress, shippingTab]);
+
+  const fetchDeliveryLocations = async () => {
+    setFetchingLocations(true);
+    try {
+      const res = await api.get('/delivery/locations');
+      setDeliveryLocations(res.data || []);
+    } catch (e) {
+      console.error('Failed to fetch delivery locations:', e);
+    } finally {
+      setFetchingLocations(false);
+    }
+  };
+
+  const checkDeliveryLocationMatch = useCallback(() => {
+    if (!selectedAddress || shippingTab !== 'kurir' || deliveryLocations.length === 0) {
+      setSelectedDeliveryLocation(null);
+      return;
+    }
+    const fullAddress = `${selectedAddress.address} ${selectedAddress.kota || ''}`.toLowerCase();
+    
+    // Match intelligently, ignoring "Desa" prefixes
+    const match = deliveryLocations.find((loc: any) => {
+      let locName = loc.name.toLowerCase().replace(/^desa\s+/, '');
+      return fullAddress.includes(locName);
+    });
+    
+    setSelectedDeliveryLocation(match || null);
+  }, [selectedAddress, shippingTab, deliveryLocations]);
+
+  useEffect(() => {
+    if (shippingTab === 'kurir') {
+      checkDeliveryLocationMatch();
+    }
+  }, [shippingTab, selectedAddress, deliveryLocations, checkDeliveryLocationMatch]);
 
   const fetchAddresses = async () => {
     try {
@@ -183,9 +224,9 @@ export default function PaymentScreen() {
       return;
     }
     if (shippingTab === 'kurir') {
-      if (!selectedAddress?.address?.toLowerCase().includes('malang')) {
-        if (Platform.OS === 'web') window.alert('Kurir Toko hanya tersedia untuk area Malang.');
-        else Alert.alert('Error', 'Kurir Toko hanya tersedia untuk area Malang.');
+      if (!selectedDeliveryLocation) {
+        if (Platform.OS === 'web') window.alert('Untuk lokasi Anda saat ini belum bisa dikirim oleh kurir sinar abadi, mohon pilih metode pengiriman yang lain.');
+        else Alert.alert('Error', 'Untuk lokasi Anda saat ini belum bisa dikirim oleh kurir sinar abadi, mohon pilih metode pengiriman yang lain.');
         return;
       }
     }
@@ -234,6 +275,7 @@ export default function PaymentScreen() {
         shippingCost: shippingCostVal,
         courierCode,
         courierServiceCode,
+        deliveryLocationId: shippingTab === 'kurir' ? selectedDeliveryLocation?.id : null,
         biteshipAreaId: selectedAddress?.biteshipAreaId || '',
         destinationAddress: selectedAddress?.address || STORE_ADDRESS,
         paymentMethod: paymentMethod.startsWith('midtrans') ? paymentMethod : 'Transfer Bank',
@@ -244,12 +286,13 @@ export default function PaymentScreen() {
       const order = res.data;
 
       if (paymentMethod.startsWith('midtrans') && order.payment?.snapToken) {
-        // Navigate to Midtrans WebView
-        router.replace({
+        // Navigate to Midtrans WebView (use push so back() returns here)
+        router.push({
           pathname: '/midtrans-payment',
           params: { snapToken: order.payment.snapToken, orderId: order.id },
         });
-        await clearCart();
+        // Don't clear cart here — only clear after successful payment
+        // If user cancels, they can retry from this screen
       } else if (paymentMethod === 'transfer' && proofImage) {
         // Upload proof
         const formData = new FormData();
@@ -373,9 +416,52 @@ export default function PaymentScreen() {
           )}
 
           {shippingTab === 'kurir' && (
-            <View style={styles.kurirInfo}>
-              <Text style={styles.kurirTitle}>Kurir Toko Sinar Abadi</Text>
-              <Text style={styles.kurirText}>Gratis ongkir — Khusus area Malang (Kota/Kabupaten)</Text>
+            <View style={{ gap: Spacing.sm }}>
+              <View style={[styles.kurirInfo, { backgroundColor: Colors.white, borderColor: Colors.border }]}>
+                <Text style={styles.kurirTitle}>Kurir Toko Sinar Abadi</Text>
+                <Text style={styles.kurirText}>Dikirim oleh armada toko kami ke desa tujuan.</Text>
+              </View>
+
+              {fetchingLocations ? (
+                <View style={{ padding: Spacing.md, alignItems: 'center' }}>
+                  <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted }}>Memuat data lokasi...</Text>
+                </View>
+              ) : selectedDeliveryLocation ? (
+                <View style={{ padding: Spacing.md, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#86efac', borderRadius: Radius.md }}>
+                  <Text style={{ fontSize: FontSizes.xs, color: '#166534', fontWeight: Fonts.semibold }}>
+                    Tujuan dikenali: <Text style={{ fontWeight: Fonts.bold }}>{selectedDeliveryLocation.name}</Text>
+                  </Text>
+                  <Text style={{ fontSize: FontSizes.sm, color: '#166534', fontWeight: Fonts.extrabold, marginTop: 4 }}>
+                    Ongkir: {selectedDeliveryLocation.shippingCost === 0 ? 'GRATIS' : formatPrice(selectedDeliveryLocation.shippingCost)}
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ padding: Spacing.md, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fca5a5', borderRadius: Radius.md }}>
+                  <Text style={{ fontSize: FontSizes.xs, color: Colors.danger, fontWeight: Fonts.semibold }}>
+                    Untuk lokasi Anda saat ini belum bisa dikirim oleh kurir sinar abadi, mohon pilih metode pengiriman yang lain.
+                  </Text>
+                </View>
+              )}
+
+              <View style={{ marginTop: Spacing.sm, padding: Spacing.md, backgroundColor: Colors.borderLight, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, borderStyle: 'dashed' }}>
+                <Text style={{ fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: Colors.textSecondary, marginBottom: Spacing.xs }}>Area Jangkauan Kurir Toko:</Text>
+                <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, lineHeight: 18 }}>
+                  • Dampit (Jambangan, Ngelak, Rembun){'\n'}
+                  • Tirtoyudo (Kepatihan, Pujiharjo, Lenggoksono){'\n'}
+                  • Wonoagung (Wonokitri){'\n'}
+                  • Tamansari (Blubuk){'\n'}
+                  • Kebonagung (Karangsono){'\n'}
+                  • Gedangan (Sumber Gesing){'\n'}
+                  • Srimulyo (Sumber Arum){'\n'}
+                  • Ampelgading (Sono Wangi, Sono Sekar){'\n'}
+                  • Sumbermanjing Wetan (Tambak Asri, Sido Asri){'\n'}
+                  • Pamotan (Sumber Ayu){'\n'}
+                  • Majangtengah (Lambang Kuning){'\n'}
+                  • Sumberputih (Lambang Sari){'\n'}
+                  • Wajak (Sumber Putih){'\n'}
+                  • Turen (Kedok, Turen Pusat)
+                </Text>
+              </View>
             </View>
           )}
 

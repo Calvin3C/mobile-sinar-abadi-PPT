@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, Platform, StatusBar,
   Pressable, ActivityIndicator, Alert,
@@ -9,40 +9,87 @@ import { ArrowLeft, X } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius } from '../constants/theme';
 import { MIDTRANS_SNAP_URL } from '../constants/api';
 import api from '../services/api';
+import { useCartStore } from '../stores/cartStore';
 
 export default function MidtransPaymentScreen() {
   const { snapToken, orderId } = useLocalSearchParams<{ snapToken: string; orderId: string }>();
   const router = useRouter();
+  const { clearCart } = useCartStore();
+
+  const webviewRef = useRef<WebView>(null);
+  const isCancelledRef = useRef(false);
 
   const snapUrl = `${MIDTRANS_SNAP_URL}/${snapToken}`;
+
+  // JS injected into WebView to detect Midtrans close/navigation events
+  const injectedJS = `
+    (function() {
+      // Monitor if the Midtrans Snap container gets removed (user pressed X inside Snap)
+      var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+          m.removedNodes.forEach(function(node) {
+            if (node.id === 'snap-midtrans' || (node.className && node.className.toString().includes('snap'))) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MIDTRANS_CLOSED' }));
+            }
+          });
+        });
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      // Also detect if the page becomes mostly empty (Snap was closed)
+      setInterval(function() {
+        var snapFrame = document.querySelector('iframe[src*="snap"], .snap-container, #snap-midtrans');
+        var bodyText = document.body.innerText.trim();
+        if (!snapFrame && bodyText.length < 20 && document.readyState === 'complete') {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MIDTRANS_CLOSED' }));
+        }
+      }, 2000);
+    })();
+    true;
+  `;
 
   const handleNavigationChange = (navState: any) => {
     const { url } = navState;
 
     // Check for success callback
     if (url.includes('status_code=200') || url.includes('transaction_status=settlement') || url.includes('transaction_status=capture')) {
+      clearCart();
       Alert.alert('Pembayaran Berhasil', 'Pesanan Anda sedang diproses.', [
         { text: 'OK', onPress: () => router.replace('/customer/orders') },
       ]);
       return;
     }
 
-    // Check for pending
+    // Check for pending — user selected a method (VA/QRIS shown), then closed
+    // In web, onPending cancels the order and user stays on payment page.
     if (url.includes('status_code=201') || url.includes('transaction_status=pending')) {
-      Alert.alert('Pembayaran Pending', 'Silakan selesaikan pembayaran Anda.', [
-        { text: 'OK', onPress: () => router.replace('/customer/orders') },
-      ]);
+      handleCancelAndGoBack();
       return;
     }
 
     // Check for error/failure
     if (url.includes('status_code=202') || url.includes('transaction_status=deny') || url.includes('transaction_status=expire') || url.includes('transaction_status=cancel')) {
-      handleCancel();
+      handleCancelAndGoBack();
     }
   };
 
-  const handleCancel = async () => {
-    // Cancel the order to restore stock
+  // Handle WebView messages (from injected JS)
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'MIDTRANS_CLOSED') {
+        handleCancelAndGoBack();
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+  };
+
+  // Cancel the order and go back to payment page (matching web behavior)
+  const handleCancelAndGoBack = async () => {
+    if (isCancelledRef.current) return; // prevent double-cancel
+    isCancelledRef.current = true;
+
     if (orderId) {
       try {
         await api.put(`/orders/${orderId}/cancel`);
@@ -52,22 +99,24 @@ export default function MidtransPaymentScreen() {
     }
     
     if (Platform.OS === 'web') {
-      window.alert('Pembayaran Dibatalkan. Pesanan Anda telah dibatalkan.');
-      router.replace('/(tabs)');
+      window.alert('Pembayaran dibatalkan. Anda dapat mencoba lagi.');
+    }
+    // Go back to payment screen (like web: user stays on payment page and can retry)
+    if (router.canGoBack()) {
+      router.back();
     } else {
-      Alert.alert('Pembayaran Dibatalkan', 'Pesanan Anda telah dibatalkan.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') },
-      ]);
+      router.replace('/payment');
     }
   };
 
+  // The X button on the header — confirm then cancel and go back to payment
   const handleClose = () => {
     if (Platform.OS === 'web') {
       const confirmCancel = window.confirm(
         'Batalkan Pembayaran?\nJika Anda meninggalkan halaman ini, pesanan akan dibatalkan.'
       );
       if (confirmCancel) {
-        handleCancel();
+        handleCancelAndGoBack();
       }
     } else {
       Alert.alert(
@@ -75,7 +124,7 @@ export default function MidtransPaymentScreen() {
         'Jika Anda meninggalkan halaman ini, pesanan akan dibatalkan.',
         [
           { text: 'Lanjutkan Bayar', style: 'cancel' },
-          { text: 'Batalkan', style: 'destructive', onPress: handleCancel },
+          { text: 'Batalkan', style: 'destructive', onPress: handleCancelAndGoBack },
         ]
       );
     }
@@ -108,8 +157,11 @@ export default function MidtransPaymentScreen() {
         />
       ) : (
         <WebView
+          ref={webviewRef}
           source={{ uri: snapUrl }}
           onNavigationStateChange={handleNavigationChange}
+          onMessage={handleWebViewMessage}
+          injectedJavaScript={injectedJS}
           startInLoadingState
           renderLoading={() => (
             <View style={styles.loadingOverlay}>

@@ -30,6 +30,7 @@ export default function CustomerLayout() {
       <Stack.Screen name="addresses" options={{ title: 'Daftar Alamat' }} />
       <Stack.Screen name="orders" options={{ title: 'Pesanan & Pengiriman' }} />
       <Stack.Screen name="history" options={{ title: 'Riwayat Selesai' }} />
+      <Stack.Screen name="chatbot" options={{ title: 'Chatbot Asisten' }} />
     </Stack>
   );
 }

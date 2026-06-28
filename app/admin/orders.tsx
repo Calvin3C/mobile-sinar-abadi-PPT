@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, StyleSheet, ScrollView, Alert,
-  ActivityIndicator, RefreshControl, Modal,
+  ActivityIndicator, RefreshControl, Modal, Platform,
 } from 'react-native';
-import { Search, Truck, Store, Package, ChevronDown } from 'lucide-react-native';
+import { Search, Truck, Store, Package, ChevronDown, Calendar, RefreshCw } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import api from '../../services/api';
 import { Order } from '../../types';
@@ -25,6 +26,8 @@ export default function AdminOrders() {
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const [isShippingModalOpen, setIsShippingModalOpen] = useState(false);
@@ -43,10 +46,17 @@ export default function AdminOrders() {
   useEffect(() => { fetchOrders(); }, []);
 
   const filteredOrders = orders.filter((o) => {
+    if (dateFilter && o.date.split('T')[0] !== dateFilter) return false;
     if (statusFilter && o.status?.toLowerCase() !== statusFilter.toLowerCase()) return false;
     if (searchQuery && !o.id.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('');
+    setDateFilter('');
+  };
 
   const updateStatus = async (orderId: string, newStatus: string, code?: string) => {
     setProcessingId(orderId);
@@ -141,6 +151,66 @@ export default function AdminOrders() {
             </Pressable>
           ))}
         </ScrollView>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm, paddingHorizontal: Spacing.lg }}>
+          {Platform.OS === 'web' ? (
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              style={{
+                padding: 8,
+                borderWidth: 1,
+                borderColor: Colors.border,
+                borderRadius: Radius.md,
+                fontSize: FontSizes.sm,
+                color: Colors.textMain,
+                backgroundColor: Colors.white,
+                outline: 'none',
+              } as any}
+            />
+          ) : (
+            <Pressable onPress={() => setShowDatePicker(true)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border }}>
+              <Calendar size={16} color={Colors.textSecondary} />
+              <Text style={{ marginLeft: 8, fontSize: FontSizes.sm, color: dateFilter ? Colors.textMain : Colors.textMuted }}>
+                {dateFilter ? dateFilter : 'Pilih Tanggal'}
+              </Text>
+            </Pressable>
+          )}
+
+          <Pressable onPress={resetFilters} style={{ flexDirection: 'row', alignItems: 'center', padding: 8 }}>
+            <RefreshCw size={14} color={Colors.primary} />
+            <Text style={{ marginLeft: 6, fontSize: FontSizes.sm, fontWeight: Fonts.medium, color: Colors.primary }}>Reset Filter</Text>
+          </Pressable>
+        </View>
+
+        {showDatePicker && Platform.OS !== 'web' && (
+          <Modal transparent animationType="fade" visible={showDatePicker} onRequestClose={() => setShowDatePicker(false)}>
+            <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setShowDatePicker(false)}>
+              <View style={{ backgroundColor: Colors.white, padding: Spacing.lg, borderRadius: Radius.lg, width: '90%', maxWidth: 350 }} onStartShouldSetResponder={() => true}>
+                <Text style={{ fontSize: FontSizes.md, fontWeight: Fonts.bold, color: Colors.textMain, marginBottom: Spacing.md, textAlign: 'center' }}>
+                  Pilih Tanggal
+                </Text>
+                <DateTimePicker
+                  value={dateFilter ? new Date(dateFilter) : new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  themeVariant="light"
+                  onChange={(event, selectedDate) => {
+                    if (Platform.OS === 'android') setShowDatePicker(false);
+                    if (selectedDate) {
+                      setDateFilter(selectedDate.toISOString().split('T')[0]);
+                    }
+                  }}
+                />
+                {Platform.OS === 'ios' && (
+                  <Pressable onPress={() => setShowDatePicker(false)} style={{ backgroundColor: Colors.primary, padding: Spacing.md, borderRadius: Radius.md, alignItems: 'center', marginTop: Spacing.md }}>
+                    <Text style={{ color: Colors.white, fontWeight: Fonts.bold }}>Selesai</Text>
+                  </Pressable>
+                )}
+              </View>
+            </Pressable>
+          </Modal>
+        )}
       </View>
 
       <ScrollView

@@ -8,6 +8,7 @@ import { Save, ArrowLeft } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import api from '../../services/api';
 import { Product, ProductVariant } from '../../types';
+import TransferStockModal from '../../components/TransferStockModal';
 
 const CATEGORY_OPTIONS = [
   'Semen', 'Perpipaan', 'Cat Tembok', 'Cat Kayu', 'Besi Beton',
@@ -30,6 +31,7 @@ export default function ProductForm() {
   });
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(isEdit);
+  const [isTransferOpen, setIsTransferOpen] = useState(false);
 
   useEffect(() => {
     if (isEdit && productId) {
@@ -106,6 +108,17 @@ export default function ProductForm() {
       <View style={styles.card}>
         {/* Name */}
         <View style={styles.group}>
+          <Text style={styles.label}>Stok</Text>
+          <TextInput style={[styles.input, { backgroundColor: '#f1f5f9' }]} value={String(form.variants?.reduce((acc, v) => acc + (v.stock || 0), 0) || 0)} editable={false} placeholder="0" />
+          
+          {isEdit && (
+            <Pressable style={{ marginTop: 12, padding: 8, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.sm, alignItems: 'center' }} onPress={() => setIsTransferOpen(true)}>
+              <Text style={{ color: Colors.primary, fontWeight: Fonts.bold }}>⇄ Pindah Stok Antar Gudang</Text>
+            </Pressable>
+          )}
+        </View>
+
+        <View style={styles.group}>
           <Text style={styles.label}>Nama Produk *</Text>
           <TextInput style={styles.input} value={form.name} onChangeText={(v) => setForm((p) => ({ ...p, name: v }))} placeholder="Nama produk" placeholderTextColor={Colors.textLight} />
         </View>
@@ -176,16 +189,21 @@ export default function ProductForm() {
           <TextInput style={styles.input} value={form.img} onChangeText={(v) => setForm((p) => ({ ...p, img: v }))} placeholder="https://..." placeholderTextColor={Colors.textLight} autoCapitalize="none" />
         </View>
 
-        {/* isLarge */}
-        <View style={styles.toggleRow}>
-          <Text style={styles.label}>Barang Besar (batasan pengiriman)</Text>
-          <Switch value={form.isLarge} onValueChange={(v) => setForm((p) => ({ ...p, isLarge: v }))} trackColor={{ false: Colors.border, true: Colors.primaryLight }} thumbColor={form.isLarge ? Colors.primary : Colors.textLight} />
-        </View>
+
 
         <Pressable style={[styles.submitBtn, loading && { opacity: 0.7 }]} onPress={handleSubmit} disabled={loading}>
           {loading ? <ActivityIndicator color={Colors.white} /> : <><Save size={18} color={Colors.white} /><Text style={styles.submitText}>{isEdit ? 'Simpan Perubahan' : 'Tambah Produk'}</Text></>}
         </Pressable>
       </View>
+
+      {isEdit && productId && (
+        <TransferStockModal 
+          visible={isTransferOpen} 
+          onClose={() => setIsTransferOpen(false)} 
+          productId={productId} 
+          variants={form.variants} 
+        />
+      )}
     </ScrollView>
   );
 }

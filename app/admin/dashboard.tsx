@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, RefreshControl,
+  SafeAreaView, Platform, StatusBar
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  Package, Clock, Users, ChevronRight, BarChart3,
+  Package, Clock, Users, ChevronRight, BarChart3, Truck, ArrowLeft,
 } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import api from '../../services/api';
@@ -36,16 +37,26 @@ export default function AdminDashboard() {
 
   const menuItems = [
     { label: 'Update Status Order', desc: 'Kelola status pesanan', icon: <Package size={22} color={Colors.info} />, bg: Colors.infoBg, route: '/admin/orders' },
+    { label: 'Pengiriman Kurir Toko', desc: 'Monitor armada & logistik', icon: <Truck size={22} color={Colors.danger} />, bg: Colors.dangerBg, route: '/admin/delivery' },
     { label: 'Daftar Customer', desc: 'Lihat semua pelanggan', icon: <Users size={22} color={Colors.success} />, bg: Colors.successBg, route: '/admin/customers' },
     { label: 'Profil Saya', desc: 'Ubah data profil', icon: <BarChart3 size={22} color={Colors.textMuted} />, bg: Colors.borderLight, route: '/admin/profile' },
   ];
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchStats(); }} colors={[Colors.primary]} />}
-    >
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Pressable style={styles.headerBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}>
+          <ArrowLeft size={22} color={Colors.textMain} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Dashboard Admin</Text>
+        <View style={styles.headerBtn} />
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchStats(); }} colors={[Colors.primary]} />}
+      >
       {/* Stats */}
       <View style={styles.statsRow}>
         {[
@@ -77,11 +88,16 @@ export default function AdminDashboard() {
         ))}
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: Colors.background, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  headerBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: FontSizes.md, fontWeight: Fonts.semibold, color: Colors.textMain },
+  scrollView: { flex: 1 },
   content: { padding: Spacing.lg },
   statsRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.xl },
   statCard: { flex: 1, backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center', ...Shadows.sm, borderWidth: 1, borderColor: Colors.border },

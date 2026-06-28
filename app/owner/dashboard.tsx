@@ -13,9 +13,10 @@ import { formatPrice } from '../../utils/format';
 
 export default function OwnerDashboard() {
   const router = useRouter();
-  const [stats, setStats] = useState({ revenue: 0, completed: 0, needRestock: 0, adminCount: 0 });
+  const [stats, setStats] = useState({ revenueKotor: 0, revenueBersih: 0, completed: 0, needRestock: 0, adminCount: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [omzetType, setOmzetType] = useState<'kotor' | 'bersih'>('kotor');
 
   const fetchStats = async () => {
     try {
@@ -29,11 +30,28 @@ export default function OwnerDashboard() {
       const admins = adminsRes.data || [];
 
       const completedOrders = orders.filter((o: any) => o.status === 'completed');
-      const revenue = completedOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+      
+      const todayDate = new Date().toISOString().substring(0, 10);
+      let revenueKotor = 0;
+      let revenueBersih = 0;
+      
+      completedOrders.forEach((o: any) => {
+        const updatedAt = o.updatedAt || o.updated_at || o.date || '';
+        if (updatedAt.substring(0, 10) === todayDate) {
+          revenueKotor += (o.total || 0);
+          if (o.items && Array.isArray(o.items)) {
+            o.items.forEach((item: any) => {
+              revenueBersih += ((item.price || 0) * (item.qty || 0));
+            });
+          }
+        }
+      });
+
       const needRestock = products.filter((p: any) => p.stock <= 0).length;
 
       setStats({
-        revenue,
+        revenueKotor,
+        revenueBersih,
         completed: completedOrders.length,
         needRestock,
         adminCount: admins.length,
@@ -61,8 +79,29 @@ export default function OwnerDashboard() {
     >
       {/* Stats */}
       <View style={styles.statsGrid}>
+        {/* Omzet Card */}
+        <View style={styles.statCard}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xs }}>
+            <DollarSign size={20} color={Colors.success} />
+            <Pressable 
+              style={{ backgroundColor: Colors.borderLight, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}
+              onPress={() => setOmzetType(t => t === 'kotor' ? 'bersih' : 'kotor')}
+            >
+              <Text style={{ fontSize: 10, color: Colors.textSecondary }}>
+                {omzetType === 'kotor' ? 'Kotor ▾' : 'Bersih ▾'}
+              </Text>
+            </Pressable>
+          </View>
+          <Text style={[styles.statValue, { color: Colors.success }]} numberOfLines={1} adjustsFontSizeToFit>
+            {loading ? '...' : formatPrice(omzetType === 'kotor' ? stats.revenueKotor : stats.revenueBersih)}
+          </Text>
+          <Text style={styles.statLabel}>Omzet Hari Ini</Text>
+          <Text style={{ fontSize: 9, color: Colors.textMuted, marginTop: 2 }}>
+            {omzetType === 'kotor' ? 'Termasuk ongkir & PPN' : 'Harga barang saja'}
+          </Text>
+        </View>
+
         {[
-          { label: 'Omzet Finansial', value: loading ? '...' : formatPrice(stats.revenue), color: Colors.success, icon: <DollarSign size={20} color={Colors.success} /> },
           { label: 'Transaksi Selesai', value: loading ? '...' : String(stats.completed), color: Colors.info, icon: <CheckCircle size={20} color={Colors.info} /> },
           { label: 'Butuh Restock', value: loading ? '...' : String(stats.needRestock), color: Colors.danger, icon: <AlertTriangle size={20} color={Colors.danger} /> },
           { label: 'Staf Admin', value: loading ? '...' : String(stats.adminCount), color: Colors.warning, icon: <Users size={20} color={Colors.warning} /> },

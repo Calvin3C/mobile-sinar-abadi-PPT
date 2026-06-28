@@ -5,7 +5,7 @@ import {
 import { useRouter } from 'expo-router';
 import {
   User, MapPin, Package, History, LogIn, LogOut, ChevronRight,
-  Shield, Crown, Settings, Phone,
+  Shield, Crown, Settings, Phone, MessageCircle,
 } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import { useAuthStore } from '../../stores/authStore';
@@ -134,6 +134,7 @@ function getMenuItems(role: string) {
       { label: 'Pesanan & Pengiriman', description: 'Lihat status pesanan Anda', route: '/customer/orders', icon: <Package size={20} color={Colors.info} />, bgColor: Colors.infoBg },
       { label: 'Riwayat Selesai', description: 'Pesanan yang sudah selesai', route: '/customer/history', icon: <History size={20} color={Colors.successDark} />, bgColor: Colors.successBg },
       { label: 'Lacak Pengiriman', description: 'Lacak status pengiriman', route: '/tracking', icon: <MapPin size={20} color={Colors.warning} />, bgColor: Colors.warningBg },
+      { label: 'Chatbot Asisten', description: 'Konsultasi material bangunan', route: '/customer/chatbot', icon: <MessageCircle size={20} color={Colors.primary} />, bgColor: Colors.primaryBg },
     ];
   }
   if (role === 'admin') {
