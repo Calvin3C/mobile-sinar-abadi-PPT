@@ -54,9 +54,7 @@ export default function MidtransPaymentScreen() {
     // Check for success callback
     if (url.includes('status_code=200') || url.includes('transaction_status=settlement') || url.includes('transaction_status=capture')) {
       clearCart();
-      Alert.alert('Pembayaran Berhasil', 'Pesanan Anda sedang diproses.', [
-        { text: 'OK', onPress: () => router.replace('/customer/orders') },
-      ]);
+      router.replace('/');
       return;
     }
 

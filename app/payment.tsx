@@ -307,24 +307,10 @@ export default function PaymentScreen() {
         });
 
         await clearCart();
-        if (Platform.OS === 'web') {
-          window.alert('Pesanan berhasil dibuat! Menunggu verifikasi pembayaran.');
-          router.replace('/customer/orders');
-        } else {
-          Alert.alert('Berhasil', 'Pesanan berhasil dibuat! Menunggu verifikasi pembayaran.', [
-            { text: 'OK', onPress: () => router.replace('/customer/orders') },
-          ]);
-        }
+        router.replace('/');
       } else {
         await clearCart();
-        if (Platform.OS === 'web') {
-          window.alert('Pesanan berhasil dibuat!');
-          router.replace('/customer/orders');
-        } else {
-          Alert.alert('Berhasil', 'Pesanan berhasil dibuat!', [
-            { text: 'OK', onPress: () => router.replace('/customer/orders') },
-          ]);
-        }
+        router.replace('/');
       }
     } catch (e: any) {
       if (Platform.OS === 'web') {

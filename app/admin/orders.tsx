@@ -29,6 +29,11 @@ export default function AdminOrders() {
   const [dateFilter, setDateFilter] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  const toggleExpand = (id: string) => {
+    setExpandedOrderId((prev) => (prev === id ? null : id));
+  };
 
   const [isShippingModalOpen, setIsShippingModalOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState('');
@@ -100,7 +105,7 @@ export default function AdminOrders() {
               setShippingCode('');
               setIsShippingModalOpen(true);
             }}>
-              <Text style={styles.actionBtnText}>Cetak Resi</Text>
+              <Text style={styles.actionBtnText}>Proses Pesanan & Kirim</Text>
             </Pressable>
           );
         }
@@ -221,7 +226,7 @@ export default function AdminOrders() {
           <EmptyState title="Tidak ada pesanan" subtitle="Pesanan akan muncul di sini" />
         ) : (
           filteredOrders.map((order) => (
-            <View key={order.id} style={styles.orderCard}>
+            <Pressable key={order.id} style={styles.orderCard} onPress={() => toggleExpand(order.id)}>
               <View style={styles.orderHeader}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.orderId}>{order.id}</Text>
@@ -239,6 +244,23 @@ export default function AdminOrders() {
                 <Text style={styles.infoText}>{order.items?.length || 0} item — {formatPrice(order.total)}</Text>
               </View>
 
+              {expandedOrderId === order.id && (
+                <View style={styles.itemsContainer}>
+                  {order.items?.map((item, idx) => (
+                    <View key={idx} style={styles.itemRow}>
+                      <Text style={styles.itemName} numberOfLines={1}>{item.name} {item.color ? `(${item.color})` : ''}</Text>
+                      <Text style={styles.itemQty}>{item.qty}x</Text>
+                      <Text style={styles.itemPrice}>{formatPrice(item.price * item.qty)}</Text>
+                    </View>
+                  ))}
+                  <View style={styles.customerInfo}>
+                    <Text style={styles.customerInfoText}>Pemesan: {order.customerName}</Text>
+                    <Text style={styles.customerInfoText}>Alamat: {order.address}</Text>
+                    <Text style={styles.customerInfoText}>No. HP: {order.phone}</Text>
+                  </View>
+                </View>
+              )}
+
               {order.shipping?.waybillId && (
                 <View style={styles.resiRow}>
                   <Text style={styles.resiLabel}>Resi:</Text>
@@ -247,7 +269,7 @@ export default function AdminOrders() {
               )}
 
               {renderActions(order)}
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>
@@ -306,6 +328,13 @@ const styles = StyleSheet.create({
   orderDate: { fontSize: FontSizes.xs, color: Colors.textMuted, marginTop: 2 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.xs },
   infoText: { fontSize: FontSizes.sm, color: Colors.textSecondary },
+  itemsContainer: { marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.borderLight },
+  itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.xs },
+  itemName: { flex: 1, fontSize: FontSizes.sm, color: Colors.textMain },
+  itemQty: { fontSize: FontSizes.xs, color: Colors.textMuted, marginHorizontal: Spacing.sm },
+  itemPrice: { fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.semibold },
+  customerInfo: { marginTop: Spacing.sm, padding: Spacing.sm, backgroundColor: Colors.borderLight, borderRadius: Radius.sm },
+  customerInfoText: { fontSize: FontSizes.xs, color: Colors.textSecondary, marginBottom: 2 },
   resiRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm, padding: Spacing.sm, backgroundColor: Colors.infoBg, borderRadius: Radius.sm },
   resiLabel: { fontSize: FontSizes.xs, color: Colors.info, fontWeight: Fonts.semibold },
   resiValue: { fontSize: FontSizes.xs, color: Colors.info },

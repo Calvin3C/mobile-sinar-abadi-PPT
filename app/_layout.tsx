@@ -55,9 +55,9 @@ export default function RootLayout() {
     <AuthGate>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(auth)" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="cart" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="cart" options={{ headerShown: false }} />
         <Stack.Screen name="payment" options={{ headerShown: false }} />
         <Stack.Screen name="midtrans-payment" options={{ headerShown: false }} />
         <Stack.Screen name="tracking" options={{ headerShown: false }} />
