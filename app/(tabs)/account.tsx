@@ -74,11 +74,21 @@ export default function AccountScreen() {
   // Logged in — role-based menu
   const menuItems = getMenuItems(user.role);
 
+  const handleProfileClick = () => {
+    if (user.role === 'owner') {
+      router.push('/owner/profile');
+    } else if (user.role === 'admin') {
+      router.push('/admin/profile');
+    } else {
+      router.push('/customer/profile');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
         {/* Profile Header */}
-        <View style={styles.profileHeader}>
+        <Pressable style={styles.profileHeader} onPress={handleProfileClick}>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarText}>
               {user.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -94,7 +104,8 @@ export default function AccountScreen() {
               <Text style={styles.profilePhone}>{user.phone || '-'}</Text>
             </View>
           </View>
-        </View>
+          <ChevronRight size={20} color={Colors.textLight} />
+        </Pressable>
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
@@ -129,7 +140,6 @@ export default function AccountScreen() {
 function getMenuItems(role: string) {
   if (role === 'customer') {
     return [
-      { label: 'Profil Saya', description: 'Ubah nama, email, password', route: '/customer/profile', icon: <User size={20} color={Colors.primary} />, bgColor: Colors.primaryBg },
       { label: 'Daftar Alamat', description: 'Kelola alamat pengiriman', route: '/customer/addresses', icon: <MapPin size={20} color={Colors.success} />, bgColor: Colors.successBg },
       { label: 'Pesanan & Pengiriman', description: 'Lihat status pesanan Anda', route: '/customer/orders', icon: <Package size={20} color={Colors.info} />, bgColor: Colors.infoBg },
       { label: 'Riwayat Selesai', description: 'Pesanan yang sudah selesai', route: '/customer/history', icon: <History size={20} color={Colors.successDark} />, bgColor: Colors.successBg },
@@ -138,16 +148,10 @@ function getMenuItems(role: string) {
     ];
   }
   if (role === 'admin') {
-    return [
-      { label: 'Dashboard Admin', description: 'Statistik & kelola pesanan', route: '/admin/dashboard', icon: <Shield size={20} color={Colors.info} />, bgColor: Colors.infoBg },
-      { label: 'Profil Saya', description: 'Ubah data profil', route: '/admin/profile', icon: <Settings size={20} color={Colors.textMuted} />, bgColor: Colors.borderLight },
-    ];
+    return [];
   }
   // owner
-  return [
-    { label: 'Dashboard Owner', description: 'Statistik & kelola bisnis', route: '/owner/dashboard', icon: <Crown size={20} color={Colors.warning} />, bgColor: Colors.warningBg },
-    { label: 'Profil Saya', description: 'Ubah data profil', route: '/owner/profile', icon: <Settings size={20} color={Colors.textMuted} />, bgColor: Colors.borderLight },
-  ];
+  return [];
 }
 
 const styles = StyleSheet.create({

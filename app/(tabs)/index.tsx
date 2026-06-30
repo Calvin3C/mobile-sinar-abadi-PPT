@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, Pressable, StyleSheet, SafeAreaView,
-  Platform, StatusBar, ActivityIndicator, FlatList, Image, RefreshControl,
+  Platform, StatusBar, ActivityIndicator, FlatList, Image, RefreshControl, TextInput
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -11,11 +11,14 @@ import {
 } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows, CATEGORIES } from '../../constants/theme';
 import { useCartStore } from '../../stores/cartStore';
+import { useAuthStore } from '../../stores/authStore';
 import api from '../../services/api';
 import { Product } from '../../types';
 import { formatPrice } from '../../utils/format';
 import HeroBanner from '../../components/HeroBanner';
 import ProductCard from '../../components/ProductCard';
+import OwnerDashboard from '../owner/dashboard';
+import AdminDashboard from '../admin/dashboard';
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   'semen': <Package size={22} color={Colors.primary} />,
@@ -48,11 +51,29 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function HomeScreen() {
+  const { user, isAuthenticated } = useAuthStore();
+
+  // Owner role: show Owner Dashboard
+  if (isAuthenticated && user?.role === 'owner') {
+    return <OwnerDashboard />;
+  }
+
+  // Admin role: show Admin Dashboard
+  if (isAuthenticated && user?.role === 'admin') {
+    return <AdminDashboard />;
+  }
+
+  // Customer / Guest: show normal store home page
+  return <CustomerHomeScreen />;
+}
+
+function CustomerHomeScreen() {
   const router = useRouter();
   const cartCount = useCartStore((s) => s.items.length);
   const [bestSellers, setBestSellers] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchBestSellers = async () => {
     try {
@@ -135,13 +156,22 @@ export default function HomeScreen() {
       </View>
 
       {/* Search bar */}
-      <Pressable
-        style={styles.searchBar}
-        onPress={() => router.push('/(tabs)/catalog')}
-      >
+      <View style={styles.searchBar}>
         <Search size={18} color={Colors.textMuted} />
-        <Text style={styles.searchPlaceholder}>Cari material bangunan...</Text>
-      </Pressable>
+        <TextInput
+          style={[styles.searchPlaceholder, { flex: 1, paddingVertical: 0 }]}
+          placeholder="Cari material bangunan..."
+          placeholderTextColor={Colors.textMuted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          onSubmitEditing={() => {
+            if (searchQuery.trim()) {
+              router.push({ pathname: '/(tabs)/catalog', params: { search: searchQuery.trim() } });
+            }
+          }}
+        />
+      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}

@@ -5,8 +5,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  Search, Calendar, MapPin, Truck, Upload, Eye, X, Package,
+  Search, Calendar, MapPin, Truck, Upload, Eye, X, Package, XCircle
 } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import api from '../../services/api';
@@ -31,6 +32,8 @@ export default function CustomerOrders() {
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [uploadingOrderId, setUploadingOrderId] = useState<string | null>(null);
   const [showProofModal, setShowProofModal] = useState(false);
   const [proofUrl, setProofUrl] = useState('');
@@ -53,6 +56,7 @@ export default function CustomerOrders() {
   const filteredOrders = orders.filter((o) => {
     if (statusFilter && o.status?.toLowerCase() !== statusFilter.toLowerCase()) return false;
     if (searchQuery && !o.id.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (dateFilter && o.date && !o.date.startsWith(dateFilter)) return false;
     return true;
   });
 
@@ -114,6 +118,51 @@ export default function CustomerOrders() {
             </Pressable>
           ))}
         </ScrollView>
+      </View>
+
+      <View style={{ paddingHorizontal: Spacing.lg, marginBottom: Spacing.md, zIndex: 10 }}>
+        <Pressable 
+          onPress={() => setShowDatePicker(true)} 
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.borderLight, paddingHorizontal: Spacing.md, height: 40, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border }}
+        >
+          <Text style={{ color: dateFilter ? Colors.textMain : Colors.textMuted, fontSize: FontSizes.xs }}>
+            {dateFilter || "Filter Tanggal"}
+          </Text>
+          {dateFilter ? (
+            <Pressable onPress={() => setDateFilter('')}>
+              <XCircle size={16} color={Colors.textMuted} />
+            </Pressable>
+          ) : (
+            <Calendar size={16} color={Colors.textMuted} />
+          )}
+        </Pressable>
+        {showDatePicker && (
+          <Modal visible={true} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
+            <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setShowDatePicker(false)}>
+              <Pressable style={{ backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.md, width: 340, alignSelf: 'center', alignItems: 'center', paddingBottom: Spacing.xl }} onPress={(e) => e.stopPropagation()}>
+                {Platform.OS === 'ios' && (
+                  <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'flex-end', marginBottom: Spacing.md }}>
+                    <Pressable onPress={() => setShowDatePicker(false)}>
+                      <Text style={{ color: Colors.primary, fontWeight: Fonts.bold, fontSize: FontSizes.base }}>Selesai</Text>
+                    </Pressable>
+                  </View>
+                )}
+                <DateTimePicker
+                  value={dateFilter ? new Date(dateFilter) : new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  themeVariant="light"
+                  onChange={(event, selectedDate) => {
+                    if (Platform.OS === 'android') setShowDatePicker(false);
+                    if (selectedDate) {
+                      setDateFilter(selectedDate.toISOString().split('T')[0]);
+                    }
+                  }}
+                />
+              </Pressable>
+            </Pressable>
+          </Modal>
+        )}
       </View>
 
       <ScrollView

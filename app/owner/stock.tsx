@@ -4,8 +4,8 @@ import {
   ActivityIndicator, RefreshControl, Modal, Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Search, Plus, Package, Edit3, Layers, X, Trash2 } from 'lucide-react-native';
-import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
+import { Search, Plus, Package, Edit3, Layers, X, Trash2, ChevronDown } from 'lucide-react-native';
+import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows, CATEGORIES } from '../../constants/theme';
 import api from '../../services/api';
 import { Product } from '../../types';
 import EmptyState from '../../components/EmptyState';
@@ -18,6 +18,7 @@ export default function OwnerStock() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showAvailableOnly, setShowAvailableOnly] = useState(false);
 
   // Variant modal
@@ -63,6 +64,8 @@ export default function OwnerStock() {
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>;
 
+  const selectedCategoryName = CATEGORIES.find(c => c.filterValue === selectedCategory)?.name || 'Semua Kategori';
+
   return (
     <View style={styles.container}>
       {/* Filters */}
@@ -71,6 +74,12 @@ export default function OwnerStock() {
           <Search size={16} color={Colors.textMuted} />
           <TextInput style={styles.searchInput} placeholder="Cari produk..." placeholderTextColor={Colors.textLight} value={searchQuery} onChangeText={setSearchQuery} />
         </View>
+
+        <Pressable style={styles.pickerContainer} onPress={() => setShowCategoryModal(true)}>
+          <Text style={styles.pickerText}>{selectedCategoryName}</Text>
+          <ChevronDown size={18} color={Colors.textMuted} />
+        </Pressable>
+
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>Stok Tersedia</Text>
           <Switch value={showAvailableOnly} onValueChange={setShowAvailableOnly} trackColor={{ false: Colors.border, true: Colors.primaryLight }} thumbColor={showAvailableOnly ? Colors.primary : Colors.textLight} />
@@ -142,6 +151,37 @@ export default function OwnerStock() {
           onRefresh={refreshVariantProduct}
         />
       )}
+
+      {/* Category Dropdown Modal */}
+      <Modal visible={showCategoryModal} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowCategoryModal(false)}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Pilih Kategori</Text>
+              <Pressable onPress={() => setShowCategoryModal(false)}>
+                <X size={20} color={Colors.textMuted} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.categoryList}>
+              <Pressable
+                style={[styles.categoryListItem, selectedCategory === '' && styles.categoryListItemActive]}
+                onPress={() => { setSelectedCategory(''); setShowCategoryModal(false); }}
+              >
+                <Text style={[styles.categoryListText, selectedCategory === '' && styles.categoryListTextActive]}>Semua Kategori</Text>
+              </Pressable>
+              {CATEGORIES.map(cat => (
+                <Pressable
+                  key={cat.id}
+                  style={[styles.categoryListItem, selectedCategory === cat.filterValue && styles.categoryListItemActive]}
+                  onPress={() => { setSelectedCategory(cat.filterValue); setShowCategoryModal(false); }}
+                >
+                  <Text style={[styles.categoryListText, selectedCategory === cat.filterValue && styles.categoryListTextActive]}>{cat.name}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -170,4 +210,15 @@ const styles = StyleSheet.create({
   variantBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.info },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.primary },
   actionText: { fontSize: FontSizes.xs, fontWeight: Fonts.semibold },
+  pickerContainer: { marginTop: Spacing.md, backgroundColor: Colors.borderLight, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: Spacing.md, paddingVertical: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pickerText: { fontSize: FontSizes.sm, color: Colors.textMain },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: Colors.white, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, paddingBottom: Spacing['4xl'], maxHeight: '70%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.xl, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  modalTitle: { fontSize: FontSizes.md, fontWeight: Fonts.bold, color: Colors.textMain },
+  categoryList: { padding: Spacing.lg },
+  categoryListItem: { paddingVertical: Spacing.md, paddingHorizontal: Spacing.md, borderRadius: Radius.md, marginBottom: Spacing.sm },
+  categoryListItemActive: { backgroundColor: Colors.primaryBg },
+  categoryListText: { fontSize: FontSizes.sm, color: Colors.textMain },
+  categoryListTextActive: { color: Colors.primary, fontWeight: Fonts.bold },
 });

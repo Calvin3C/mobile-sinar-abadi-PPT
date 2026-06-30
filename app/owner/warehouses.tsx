@@ -65,9 +65,15 @@ export default function WarehousesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Search Queries
+  // Search Queries and Filters
   const [inboundSearch, setInboundSearch] = useState('');
+  const [inboundDateFilter, setInboundDateFilter] = useState('');
+  const [inboundWarehouseFilter, setInboundWarehouseFilter] = useState('');
+  const [showInboundDateFilterPicker, setShowInboundDateFilterPicker] = useState(false);
   const [outboundSearch, setOutboundSearch] = useState('');
+  const [outboundDateFilter, setOutboundDateFilter] = useState('');
+  const [outboundWarehouseFilter, setOutboundWarehouseFilter] = useState('');
+  const [showOutboundDateFilterPicker, setShowOutboundDateFilterPicker] = useState(false);
   const [transferSearch, setTransferSearch] = useState('');
 
   // Modals state
@@ -85,8 +91,13 @@ export default function WarehousesScreen() {
   });
 
 
+  // Inbound Expansion / Detail Modal
+  const [selectedInbound, setSelectedInbound] = useState<any>(null);
+  const [isInboundDetailModalOpen, setIsInboundDetailModalOpen] = useState(false);
+
   // Outbound Expansion
-  const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
+  const [selectedOutbound, setSelectedOutbound] = useState<any>(null);
+  const [isOutboundDetailModalOpen, setIsOutboundDetailModalOpen] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -94,16 +105,19 @@ export default function WarehousesScreen() {
         api.get('/warehouses'),
         api.get('/inbounds'),
         api.get('/orders'),
-        api.get('/products'),
+        api.get('/products', { params: { limit: 1000 } }),
         api.get('/stock-transfers').catch(() => ({ data: { data: [] } })),
       ]);
       setWarehouses(whRes.data?.data || []);
       setInbounds(ibRes.data?.data || []);
-      setProducts(prodRes.data?.data || []);
+      
+      const prodArray = Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data?.products || prodRes.data?.data || []);
+      setProducts(prodArray);
+      
       setTransfers(trRes.data?.data || []);
       
       const orders = outRes.data || [];
-      const shippingOrders = orders.filter((o: any) => o.status?.toLowerCase() === 'shipping' || o.status?.toLowerCase() === 'completed');
+      const shippingOrders = Array.isArray(orders) ? orders.filter((o: any) => o.status?.toLowerCase() === 'shipping' || o.status?.toLowerCase() === 'completed') : [];
       setOutbounds(shippingOrders);
     } catch (e) {
       console.error(e);
@@ -214,15 +228,35 @@ export default function WarehousesScreen() {
     }
   };
 
-  const filteredInbounds = inbounds.filter(ib => 
-    `PO-${ib.id}`.toLowerCase().includes(inboundSearch.toLowerCase()) || 
-    (ib.supplierName || '').toLowerCase().includes(inboundSearch.toLowerCase())
-  );
+  const filteredInbounds = inbounds.filter(ib => {
+    const matchSearch = `PO-${ib.id}`.toLowerCase().includes(inboundSearch.toLowerCase()) || 
+      (ib.supplierName || '').toLowerCase().includes(inboundSearch.toLowerCase());
+    
+    const matchDate = inboundDateFilter 
+      ? (ib.expectedDate && ib.expectedDate.startsWith(inboundDateFilter)) || (ib.createdAt && ib.createdAt.startsWith(inboundDateFilter))
+      : true;
 
-  const filteredOutbounds = outbounds.filter(o => 
-    o.id.toLowerCase().includes(outboundSearch.toLowerCase()) || 
-    (o.shippingMethod || '').toLowerCase().includes(outboundSearch.toLowerCase())
-  );
+    const matchWarehouse = inboundWarehouseFilter 
+      ? (ib.items || ib.Items || []).some((item: any) => item.warehouseId?.toString() === inboundWarehouseFilter || item.WarehouseID?.toString() === inboundWarehouseFilter)
+      : true;
+
+    return matchSearch && matchDate && matchWarehouse;
+  });
+
+  const filteredOutbounds = outbounds.filter(o => {
+    const matchSearch = o.id.toLowerCase().includes(outboundSearch.toLowerCase()) || 
+      (o.shippingMethod || '').toLowerCase().includes(outboundSearch.toLowerCase());
+
+    const matchDate = outboundDateFilter 
+      ? (o.date && o.date.startsWith(outboundDateFilter)) || (o.createdAt && o.createdAt.startsWith(outboundDateFilter))
+      : true;
+
+    const matchWarehouse = outboundWarehouseFilter 
+      ? (o.items || o.Items || []).some((item: any) => item.warehouseId?.toString() === outboundWarehouseFilter || item.WarehouseID?.toString() === outboundWarehouseFilter)
+      : true;
+
+    return matchSearch && matchDate && matchWarehouse;
+  });
 
   const filteredTransfers = transfers.filter(t =>
     (t.product?.name || '').toLowerCase().includes(transferSearch.toLowerCase()) ||
@@ -286,7 +320,7 @@ export default function WarehousesScreen() {
 
   const renderMasuk = () => (
     <View>
-      <View style={{ flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.md }}>
+      <View style={{ flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.sm }}>
         <View style={styles.searchContainer}>
           <Search size={18} color={Colors.textMuted} />
           <TextInput 
@@ -301,11 +335,69 @@ export default function WarehousesScreen() {
         </Pressable>
       </View>
       
+      {/* Filters for Tanggal & Gudang */}
+      <View style={{ flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md, zIndex: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Pressable 
+            onPress={() => setShowInboundDateFilterPicker(true)} 
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.borderLight, paddingHorizontal: Spacing.md, height: 40, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border }}
+          >
+            <Text style={{ color: inboundDateFilter ? Colors.textMain : Colors.textMuted, fontSize: FontSizes.xs }}>
+              {inboundDateFilter || "Semua Tanggal"}
+            </Text>
+            {inboundDateFilter ? (
+              <Pressable onPress={() => setInboundDateFilter('')}>
+                <XCircle size={16} color={Colors.textMuted} />
+              </Pressable>
+            ) : (
+              <Calendar size={16} color={Colors.textMuted} />
+            )}
+          </Pressable>
+          {showInboundDateFilterPicker && (
+            <Modal visible={true} transparent animationType="fade" onRequestClose={() => setShowInboundDateFilterPicker(false)}>
+              <Pressable style={styles.dropdownOverlay} onPress={() => setShowInboundDateFilterPicker(false)}>
+                <Pressable style={[styles.dropdownMenu, { alignItems: 'center', paddingBottom: Spacing.xl }]} onPress={(e) => e.stopPropagation()}>
+                  {Platform.OS === 'ios' && (
+                    <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'flex-end', marginBottom: Spacing.md }}>
+                      <Pressable onPress={() => setShowInboundDateFilterPicker(false)}>
+                        <Text style={{ color: Colors.primary, fontWeight: Fonts.bold, fontSize: FontSizes.base }}>Selesai</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  <DateTimePicker
+                    value={inboundDateFilter ? new Date(inboundDateFilter) : new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    themeVariant="light"
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === 'android') setShowInboundDateFilterPicker(false);
+                      if (selectedDate) {
+                        setInboundDateFilter(selectedDate.toISOString().split('T')[0]);
+                      }
+                    }}
+                  />
+                </Pressable>
+              </Pressable>
+            </Modal>
+          )}
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <CustomDropdown
+            label="Filter Gudang"
+            placeholder="Semua Gudang"
+            options={warehouses.map(w => ({ label: w.name, value: w.id.toString() }))}
+            selectedValue={inboundWarehouseFilter}
+            onSelect={setInboundWarehouseFilter}
+          />
+        </View>
+      </View>
+      
       {filteredInbounds.length === 0 ? (
         <EmptyState title="Belum ada logistik masuk" subtitle="Data kulakan akan muncul di sini." />
       ) : (
         filteredInbounds.map((ib) => (
-          <View key={ib.id} style={styles.card}>
+          <Pressable key={ib.id} style={styles.card} onPress={() => { setSelectedInbound(ib); setIsInboundDetailModalOpen(true); }}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>PO-{ib.id}</Text>
               <Text style={[styles.statusText, { color: getInboundStatusColor(ib.status) }]}>
@@ -337,7 +429,7 @@ export default function WarehousesScreen() {
                 </Pressable>
               </View>
             )}
-          </View>
+          </Pressable>
         ))
       )}
     </View>
@@ -345,22 +437,82 @@ export default function WarehousesScreen() {
 
   const renderKeluar = () => (
     <View>
-      <View style={styles.searchContainer}>
-        <Search size={18} color={Colors.textMuted} />
-        <TextInput 
-          style={styles.searchInput} 
-          placeholder="Cari ID Order atau Metode Pengiriman" 
-          value={outboundSearch} 
-          onChangeText={setOutboundSearch}
-        />
+      <View style={{ flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.sm }}>
+        <View style={styles.searchContainer}>
+          <Search size={18} color={Colors.textMuted} />
+          <TextInput 
+            style={styles.searchInput} 
+            placeholder="Cari ID Order atau Metode Pengiriman" 
+            value={outboundSearch} 
+            onChangeText={setOutboundSearch}
+          />
+        </View>
       </View>
+      
+      {/* Filters for Tanggal & Gudang Keluar */}
+      <View style={{ flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md, zIndex: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Pressable 
+            onPress={() => setShowOutboundDateFilterPicker(true)} 
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.borderLight, paddingHorizontal: Spacing.md, height: 40, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border }}
+          >
+            <Text style={{ color: outboundDateFilter ? Colors.textMain : Colors.textMuted, fontSize: FontSizes.xs }}>
+              {outboundDateFilter || "Semua Tanggal"}
+            </Text>
+            {outboundDateFilter ? (
+              <Pressable onPress={() => setOutboundDateFilter('')}>
+                <XCircle size={16} color={Colors.textMuted} />
+              </Pressable>
+            ) : (
+              <Calendar size={16} color={Colors.textMuted} />
+            )}
+          </Pressable>
+          {showOutboundDateFilterPicker && (
+            <Modal visible={true} transparent animationType="fade" onRequestClose={() => setShowOutboundDateFilterPicker(false)}>
+              <Pressable style={styles.dropdownOverlay} onPress={() => setShowOutboundDateFilterPicker(false)}>
+                <Pressable style={[styles.dropdownMenu, { alignItems: 'center', paddingBottom: Spacing.xl }]} onPress={(e) => e.stopPropagation()}>
+                  {Platform.OS === 'ios' && (
+                    <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'flex-end', marginBottom: Spacing.md }}>
+                      <Pressable onPress={() => setShowOutboundDateFilterPicker(false)}>
+                        <Text style={{ color: Colors.primary, fontWeight: Fonts.bold, fontSize: FontSizes.base }}>Selesai</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  <DateTimePicker
+                    value={outboundDateFilter ? new Date(outboundDateFilter) : new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    themeVariant="light"
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === 'android') setShowOutboundDateFilterPicker(false);
+                      if (selectedDate) {
+                        setOutboundDateFilter(selectedDate.toISOString().split('T')[0]);
+                      }
+                    }}
+                  />
+                </Pressable>
+              </Pressable>
+            </Modal>
+          )}
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <CustomDropdown
+            label="Filter Gudang"
+            placeholder="Semua Gudang"
+            options={warehouses.map(w => ({ label: w.name, value: w.id.toString() }))}
+            selectedValue={outboundWarehouseFilter}
+            onSelect={setOutboundWarehouseFilter}
+          />
+        </View>
+      </View>
+
       {filteredOutbounds.length === 0 ? (
         <EmptyState title="Belum ada logistik keluar" subtitle="Pesanan yang sedang dikirim akan muncul di sini." />
       ) : (
         filteredOutbounds.map((order) => {
-          const isExpanded = expandedOrders.includes(order.id);
           return (
-            <Pressable key={order.id} style={styles.card} onPress={() => toggleOrderDetails(order.id)}>
+            <Pressable key={order.id} style={styles.card} onPress={() => { setSelectedOutbound(order); setIsOutboundDetailModalOpen(true); }}>
               <View style={styles.cardHeader}>
                 <View>
                   <Text style={styles.cardTitle}>{order.id}</Text>
@@ -380,24 +532,9 @@ export default function WarehousesScreen() {
               )}
 
               <View style={styles.expandToggle}>
-                <Text style={styles.expandToggleText}>{isExpanded ? 'Sembunyikan Detail' : 'Lihat Detail Item'}</Text>
-                {isExpanded ? <ChevronUp size={16} color={Colors.textMuted} /> : <ChevronDown size={16} color={Colors.textMuted} />}
+                <Text style={styles.expandToggleText}>Lihat Detail Barang Keluar</Text>
+                <ArrowRight size={16} color={Colors.textMuted} />
               </View>
-
-              {isExpanded && (
-                <View style={styles.expandedContent}>
-                  <Text style={styles.expandedTitle}>Detail Barang Keluar:</Text>
-                  {order.items?.map((item: any, idx: number) => (
-                    <View key={idx} style={styles.expandedItemRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.expandedItemName}>{item.name}</Text>
-                        {item.color && <Text style={styles.expandedItemVariant}>Varian: {item.color}</Text>}
-                      </View>
-                      <Text style={styles.expandedItemQty}>{item.qty}x</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
             </Pressable>
           );
         })
@@ -649,6 +786,140 @@ export default function WarehousesScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+
+      {/* Modal Detail Inbound */}
+      <Modal visible={isInboundDetailModalOpen} transparent animationType="slide" onRequestClose={() => setIsInboundDetailModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%', width: '95%' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg }}>
+              <Text style={[styles.modalTitle, { marginBottom: 0 }]}>Detail Purchase Order (PO-{selectedInbound?.id})</Text>
+              <Pressable onPress={() => setIsInboundDetailModalOpen(false)}>
+                <XCircle size={24} color={Colors.textMuted} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Info Header */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: Colors.borderLight, padding: Spacing.md, borderRadius: Radius.md, marginBottom: Spacing.lg }}>
+                <View>
+                  <Text style={styles.infoLabel}>Supplier</Text>
+                  <Text style={{ fontWeight: Fonts.bold, color: Colors.textMain, fontSize: FontSizes.base }}>{selectedInbound?.supplierName}</Text>
+                </View>
+                <View>
+                  <Text style={styles.infoLabel}>Tgl. Estimasi</Text>
+                  <Text style={{ fontWeight: Fonts.bold, color: Colors.textMain, fontSize: FontSizes.base }}>{selectedInbound ? formatDate(selectedInbound.expectedDate) : ''}</Text>
+                </View>
+                <View>
+                  <Text style={styles.infoLabel}>Status</Text>
+                  <Text style={[styles.statusText, { color: getInboundStatusColor(selectedInbound?.status), marginTop: 4 }]}>
+                    {selectedInbound ? getInboundStatusLabel(selectedInbound.status) : ''}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={{ fontWeight: Fonts.bold, fontSize: FontSizes.md, color: Colors.textMain, marginBottom: Spacing.md }}>Daftar Barang Dikulak</Text>
+              
+              <View style={{ borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, overflow: 'hidden' }}>
+                <View style={{ flexDirection: 'row', backgroundColor: Colors.borderLight, padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+                  <Text style={{ flex: 1, fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: Colors.textMuted }}>ID</Text>
+                  <Text style={{ flex: 2, fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: Colors.textMuted }}>PRODUK</Text>
+                  <Text style={{ flex: 1.5, fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: Colors.textMuted }}>GUDANG</Text>
+                  <Text style={{ flex: 0.8, fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: Colors.textMuted, textAlign: 'center' }}>QTY</Text>
+                  <Text style={{ flex: 1.5, fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: Colors.textMuted, textAlign: 'right' }}>HARGA</Text>
+                  <Text style={{ flex: 1.8, fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: Colors.textMuted, textAlign: 'right' }}>SUBTOTAL</Text>
+                </View>
+                
+                {(selectedInbound?.items || selectedInbound?.Items || []).map((item: any, idx: number) => {
+                  const product = products.find(p => p.id === item.productId || p.id === item.ProductID || p.id === item.product_id);
+                  const wh = warehouses.find(w => w.id === item.warehouseId || w.id === item.WarehouseID || w.id === item.warehouse_id);
+                  const subtotal = (item.qty || item.Qty) * (item.unitCost || item.UnitCost);
+                  
+                  return (
+                    <View key={idx} style={{ flexDirection: 'row', padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border, alignItems: 'center' }}>
+                      <Text style={{ flex: 1, fontSize: FontSizes.xs, color: Colors.textMain }}>{product?.id || item.productId || item.ProductID}</Text>
+                      <Text style={{ flex: 2, fontSize: FontSizes.xs, color: Colors.textMain, fontWeight: Fonts.medium }}>{product?.name || 'Unknown'}</Text>
+                      <Text style={{ flex: 1.5, fontSize: FontSizes.xs, color: Colors.textMain }}>{wh?.name || 'Unknown'}</Text>
+                      <Text style={{ flex: 0.8, fontSize: FontSizes.xs, color: Colors.textMain, textAlign: 'center', fontWeight: Fonts.bold }}>{item.qty || item.Qty}</Text>
+                      <Text style={{ flex: 1.5, fontSize: FontSizes.xs, color: Colors.textMain, textAlign: 'right' }}>{formatPrice(item.unitCost || item.UnitCost)}</Text>
+                      <Text style={{ flex: 1.8, fontSize: FontSizes.xs, color: Colors.textMain, textAlign: 'right', fontWeight: Fonts.bold }}>{formatPrice(subtotal)}</Text>
+                    </View>
+                  );
+                })}
+                
+                <View style={{ flexDirection: 'row', padding: Spacing.md, backgroundColor: Colors.white, justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <Text style={{ fontWeight: Fonts.bold, color: Colors.textMain, marginRight: Spacing.md }}>Total Biaya:</Text>
+                  <Text style={{ fontWeight: Fonts.bold, color: Colors.danger, fontSize: FontSizes.md }}>{formatPrice(selectedInbound?.totalCost || 0)}</Text>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Detail Outbound (Logistik Keluar) */}
+      <Modal visible={isOutboundDetailModalOpen} transparent animationType="slide" onRequestClose={() => setIsOutboundDetailModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%', width: '95%' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg }}>
+              <Text style={[styles.modalTitle, { marginBottom: 0 }]}>Detail Logistik Keluar ({selectedOutbound?.id})</Text>
+              <Pressable onPress={() => setIsOutboundDetailModalOpen(false)}>
+                <XCircle size={24} color={Colors.textMuted} />
+              </Pressable>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing.md }}>
+              <View>
+                {/* Table Header */}
+                <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.borderLight, paddingBottom: Spacing.sm, marginBottom: Spacing.sm }}>
+                  <Text style={{ width: 180, fontWeight: Fonts.bold, color: Colors.textSecondary, fontSize: FontSizes.xs, textAlign: 'left' }}>NAMA PRODUK / DESKRIPSI</Text>
+                  <Text style={{ width: 80, fontWeight: Fonts.bold, color: Colors.textSecondary, fontSize: FontSizes.xs, textAlign: 'center' }}>QTY KELUAR</Text>
+                  <Text style={{ width: 60, fontWeight: Fonts.bold, color: Colors.textSecondary, fontSize: FontSizes.xs, textAlign: 'center' }}>UOM</Text>
+                  {warehouses.map(wh => (
+                    <Text key={wh.id} style={{ width: 100, fontWeight: Fonts.bold, color: Colors.textSecondary, fontSize: FontSizes.xs, textAlign: 'center' }}>
+                      STOK AKTUAL{'\n'}({wh.name.toUpperCase()})
+                    </Text>
+                  ))}
+                  <Text style={{ width: 100, fontWeight: Fonts.bold, color: Colors.textSecondary, fontSize: FontSizes.xs, textAlign: 'center' }}>STOK ALOKASI</Text>
+                </View>
+
+                {/* Table Rows */}
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {selectedOutbound?.items?.map((item: any, idx: number) => {
+                    const product = products.find((p: any) => String(p.id) === String(item.productId) || p.name === item.name);
+                    
+                    return (
+                      <View key={idx} style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.borderLight, paddingVertical: Spacing.sm, alignItems: 'center' }}>
+                        <View style={{ width: 180, paddingRight: Spacing.sm }}>
+                          <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.semibold }}>{item.name}</Text>
+                          {item.color && <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted }}>Varian: {item.color}</Text>}
+                        </View>
+                        <Text style={{ width: 80, fontSize: FontSizes.sm, color: Colors.success, fontWeight: Fonts.bold, textAlign: 'center' }}>{item.qty}</Text>
+                        <Text style={{ width: 60, fontSize: FontSizes.sm, color: Colors.textMuted, textAlign: 'center' }}>{product?.unit || 'Pcs'}</Text>
+                        
+                        {warehouses.map(wh => {
+                          let stock = 0;
+                          if (product?.warehouseStocks) {
+                            const ws = product.warehouseStocks.find((w: any) => String(w.warehouseId) === String(wh.id));
+                            stock = ws ? ws.stock : 0;
+                          }
+                          return (
+                            <Text key={wh.id} style={{ width: 100, fontSize: FontSizes.sm, color: Colors.info, textAlign: 'center' }}>
+                              {stock}
+                            </Text>
+                          );
+                        })}
+                        
+                        <Text style={{ width: 100, fontSize: FontSizes.sm, color: Colors.warning, textAlign: 'center' }}>0</Text>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
 
 

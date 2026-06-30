@@ -27,7 +27,7 @@ const CATEGORY_OPTIONS = [
 
 export default function CatalogScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ category?: string }>();
+  const params = useLocalSearchParams<{ category?: string; search?: string }>();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ export default function CatalogScreen() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(params.search || '');
   const [selectedCategory, setSelectedCategory] = useState(params.category || '');
   const [selectedSort, setSelectedSort] = useState('rekomendasi');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);

@@ -29,6 +29,7 @@ export default function PaymentScreen() {
   const [selectedAddress, setSelectedAddress] = useState<CustomerAddress | null>(null);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<number | null>(null);
 
   // Shipping
   const [shippingTab, setShippingTab] = useState<ShippingTab>('ekspedisi');
@@ -193,9 +194,14 @@ export default function PaymentScreen() {
       return;
     }
     try {
-      await api.post('/addresses', addressForm);
+      if (editingAddressId) {
+        await api.put(`/addresses/${editingAddressId}`, addressForm);
+      } else {
+        await api.post('/addresses', addressForm);
+      }
       await fetchAddresses();
       setShowAddressForm(false);
+      setEditingAddressId(null);
       setAddressForm({ name: user?.name || '', phone: user?.phone || '', label: '', address: '', catatan: '', kota: '', postalCode: '', biteshipAreaId: '' });
       setAreaQuery('');
     } catch (e: any) {
@@ -356,7 +362,7 @@ export default function PaymentScreen() {
           <Text style={styles.sectionTitle}>Metode Pengiriman</Text>
           <View style={styles.tabRow}>
             {([
-              { key: 'ekspedisi', label: 'Semua', icon: <Truck size={16} /> },
+              { key: 'ekspedisi', label: 'Ekspedisi', icon: <Truck size={16} /> },
               { key: 'kurir', label: 'Kurir', icon: <Package size={16} /> },
               { key: 'ambil', label: 'Ambil', icon: <Store size={16} /> },
             ] as const).map((tab) => (
@@ -570,21 +576,6 @@ export default function PaymentScreen() {
               </Pressable>
             </View>
             <ScrollView>
-              {/* Ambil di toko option */}
-              <Pressable
-                style={[styles.addressOption, shippingTab === 'ambil' && styles.addressOptionActive]}
-                onPress={() => {
-                  setShippingTab('ambil');
-                  setShowAddressModal(false);
-                }}
-              >
-                <Store size={18} color={Colors.info} />
-                <View style={{ flex: 1, marginLeft: Spacing.md }}>
-                  <Text style={styles.addressOptName}>Ambil Di Toko</Text>
-                  <Text style={styles.addressOptAddr}>{STORE_ADDRESS}</Text>
-                </View>
-              </Pressable>
-
               {addresses.map((addr) => (
                 <Pressable
                   key={addr.id}
@@ -597,13 +588,32 @@ export default function PaymentScreen() {
                 >
                   <MapPin size={18} color={Colors.primary} />
                   <View style={{ flex: 1, marginLeft: Spacing.md }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={styles.addressOptName}>{addr.label}</Text>
-                      {addr.isMain && (
-                        <View style={styles.mainBadge}>
-                          <Text style={styles.mainBadgeText}>Utama</Text>
-                        </View>
-                      )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.addressOptName}>{addr.label}</Text>
+                        {addr.isMain && (
+                          <View style={styles.mainBadge}>
+                            <Text style={styles.mainBadgeText}>Utama</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Pressable
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setEditingAddressId(addr.id);
+                          setAddressForm({
+                            name: addr.name, phone: addr.phone, label: addr.label, address: addr.address,
+                            catatan: addr.catatan || '', kota: addr.kota || '', postalCode: addr.postalCode || '',
+                            biteshipAreaId: addr.biteshipAreaId || ''
+                          });
+                          setAreaQuery(addr.kota || '');
+                          setShowAddressModal(false);
+                          setShowAddressForm(true);
+                        }}
+                        style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                      >
+                        <Text style={{ fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: Colors.primary }}>Ubah</Text>
+                      </Pressable>
                     </View>
                     <Text style={styles.addressOptAddr}>{addr.name} • {addr.phone}</Text>
                     <Text style={styles.addressOptAddr}>{addr.address}, {addr.kota}</Text>
@@ -613,7 +623,13 @@ export default function PaymentScreen() {
 
               <Pressable
                 style={styles.addAddressButton}
-                onPress={() => { setShowAddressModal(false); setShowAddressForm(true); }}
+                onPress={() => {
+                  setEditingAddressId(null);
+                  setAddressForm({ name: user?.name || '', phone: user?.phone || '', label: '', address: '', catatan: '', kota: '', postalCode: '', biteshipAreaId: '' });
+                  setAreaQuery('');
+                  setShowAddressModal(false); 
+                  setShowAddressForm(true); 
+                }}
               >
                 <Plus size={18} color={Colors.primary} />
                 <Text style={styles.addAddressText}>Tambah Alamat Baru</Text>
@@ -628,7 +644,7 @@ export default function PaymentScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Tambah Alamat</Text>
+              <Text style={styles.modalTitle}>{editingAddressId ? 'Ubah Alamat' : 'Tambah Alamat'}</Text>
               <Pressable onPress={() => setShowAddressForm(false)}>
                 <X size={22} color={Colors.textMain} />
               </Pressable>

@@ -35,9 +35,7 @@ export default function AdminOrders() {
     setExpandedOrderId((prev) => (prev === id ? null : id));
   };
 
-  const [isShippingModalOpen, setIsShippingModalOpen] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState('');
-  const [shippingCode, setShippingCode] = useState('');
+
 
   const fetchOrders = async () => {
     try {
@@ -76,14 +74,7 @@ export default function AdminOrders() {
     }
   };
 
-  const handleUpdateShipping = () => {
-    if (!shippingCode) {
-      Alert.alert('Error', 'Silakan masukkan nomor resi.');
-      return;
-    }
-    updateStatus(selectedOrderId, 'shipping', shippingCode);
-    setIsShippingModalOpen(false);
-  };
+
 
   const getShippingType = (method: string) => {
     if (!method) return 'kurir';
@@ -100,12 +91,8 @@ export default function AdminOrders() {
       if (type === 'kurir') {
         if (order.status?.toUpperCase() === 'SUCCESS' || order.status?.toUpperCase() === 'VERIFIED') {
           return (
-            <Pressable style={styles.actionBtn} onPress={() => {
-              setSelectedOrderId(order.id);
-              setShippingCode('');
-              setIsShippingModalOpen(true);
-            }}>
-              <Text style={styles.actionBtnText}>Proses Pesanan & Kirim</Text>
+            <Pressable style={styles.actionBtn} onPress={() => updateStatus(order.id, 'shipping')} disabled={processingId === order.id}>
+              {processingId === order.id ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.actionBtnText}>Proses Pesanan & Kirim</Text>}
             </Pressable>
           );
         }
@@ -275,37 +262,6 @@ export default function AdminOrders() {
       </ScrollView>
 
       {/* Modal Resi */}
-      <Modal
-        visible={isShippingModalOpen}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setIsShippingModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Input Kode Resi Pengiriman</Text>
-            
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Nomor Resi / Bukti Jalan</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Contoh: JT-12345678"
-                value={shippingCode}
-                onChangeText={setShippingCode}
-              />
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable style={[styles.modalBtn, styles.modalBtnOutline]} onPress={() => setIsShippingModalOpen(false)}>
-                <Text style={styles.modalBtnOutlineText}>Batal</Text>
-              </Pressable>
-              <Pressable style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={handleUpdateShipping}>
-                <Text style={styles.modalBtnPrimaryText}>Kirim Barang</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }

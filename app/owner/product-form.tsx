@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, StyleSheet, ScrollView, Alert,
-  ActivityIndicator, Switch,
+  ActivityIndicator, Switch, Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Save, ArrowLeft } from 'lucide-react-native';
+import { Save, ArrowLeft, Upload, ImageIcon } from 'lucide-react-native';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import api from '../../services/api';
 import { Product, ProductVariant } from '../../types';
@@ -32,6 +33,7 @@ export default function ProductForm() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(isEdit);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
+  const [uploadingImg, setUploadingImg] = useState(false);
 
   useEffect(() => {
     if (isEdit && productId) {
@@ -55,6 +57,52 @@ export default function ProductForm() {
       Alert.alert('Error', 'Gagal memuat data produk.');
     } finally {
       setFetching(false);
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Izin Ditolak', 'Dibutuhkan izin akses galeri untuk mengunggah gambar.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setUploadingImg(true);
+        const asset = result.assets[0];
+        
+        const formData = new FormData();
+        const filename = asset.uri.split('/').pop() || 'image.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : `image`;
+
+        formData.append('image', {
+          uri: asset.uri,
+          name: filename,
+          type,
+        } as any);
+
+        const res = await api.post('/products/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (res.data?.image_url) {
+          setForm(prev => ({ ...prev, img: res.data.image_url }));
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Gagal mengunggah gambar.');
+      console.error(error);
+    } finally {
+      setUploadingImg(false);
     }
   };
 
@@ -183,13 +231,31 @@ export default function ProductForm() {
           <TextInput style={styles.input} value={form.minPurchase} onChangeText={(v) => setForm((p) => ({ ...p, minPurchase: v }))} placeholder="1" placeholderTextColor={Colors.textLight} keyboardType="numeric" />
         </View>
 
-        {/* Image URL */}
+        {/* Image Upload */}
         <View style={styles.group}>
-          <Text style={styles.label}>URL Gambar</Text>
-          <TextInput style={styles.input} value={form.img} onChangeText={(v) => setForm((p) => ({ ...p, img: v }))} placeholder="https://..." placeholderTextColor={Colors.textLight} autoCapitalize="none" />
+          <Text style={styles.label}>Gambar Produk</Text>
+          <View style={styles.imageUploadContainer}>
+            {form.img ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: form.img }} style={styles.imagePreview} />
+                <Pressable style={styles.removeImageBtn} onPress={() => setForm(p => ({ ...p, img: '' }))}>
+                  <Text style={styles.removeImageText}>Hapus</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable style={styles.uploadBtn} onPress={handlePickImage} disabled={uploadingImg}>
+                {uploadingImg ? (
+                  <ActivityIndicator color={Colors.primary} />
+                ) : (
+                  <>
+                    <Upload size={24} color={Colors.textMuted} />
+                    <Text style={styles.uploadText}>Unggah Gambar</Text>
+                  </>
+                )}
+              </Pressable>
+            )}
+          </View>
         </View>
-
-
 
         <Pressable style={[styles.submitBtn, loading && { opacity: 0.7 }]} onPress={handleSubmit} disabled={loading}>
           {loading ? <ActivityIndicator color={Colors.white} /> : <><Save size={18} color={Colors.white} /><Text style={styles.submitText}>{isEdit ? 'Simpan Perubahan' : 'Tambah Produk'}</Text></>}
@@ -227,4 +293,11 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xl },
   submitBtn: { backgroundColor: Colors.primary, borderRadius: Radius.lg, paddingVertical: Spacing.md + 2, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: Spacing.sm, ...Shadows.md },
   submitText: { color: Colors.white, fontSize: FontSizes.md, fontWeight: Fonts.bold },
+  imageUploadContainer: { marginTop: Spacing.xs },
+  imagePreviewContainer: { position: 'relative', width: 120, height: 120, borderRadius: Radius.md, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
+  imagePreview: { width: '100%', height: '100%', resizeMode: 'cover' },
+  removeImageBtn: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 4, alignItems: 'center' },
+  removeImageText: { color: Colors.white, fontSize: FontSizes.xs, fontWeight: Fonts.bold },
+  uploadBtn: { width: 120, height: 120, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.borderLight, gap: Spacing.sm },
+  uploadText: { fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.medium },
 });

@@ -36,7 +36,7 @@ export const Colors = {
 
 export const StatusColors: Record<string, { bg: string; text: string; label: string }> = {
   pending: { bg: '#fef3c7', text: '#92400e', label: 'Menunggu Konfirmasi' },
-  success: { bg: '#e0f2fe', text: '#0369a1', label: 'Diproses' },
+  success: { bg: '#fef3c7', text: '#92400e', label: 'Diproses' },
   shipping: { bg: '#fef3c7', text: '#92400e', label: 'Dikirim' },
   completed: { bg: '#dcfce7', text: '#166534', label: 'Selesai' },
   cancelled: { bg: '#fecaca', text: '#991b1b', label: 'Dibatalkan' },

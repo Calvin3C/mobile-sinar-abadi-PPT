@@ -45,9 +45,7 @@ export default function AdminDashboard() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.headerBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}>
-          <ArrowLeft size={22} color={Colors.textMain} />
-        </Pressable>
+        <View style={styles.headerBtn} />
         <Text style={styles.headerTitle}>Dashboard Admin</Text>
         <View style={styles.headerBtn} />
       </View>

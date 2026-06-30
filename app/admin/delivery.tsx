@@ -5,8 +5,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  ArrowLeft, Truck, Package, Search, ChevronRight, X, CheckCircle, Clock
+  ArrowLeft, Truck, Package, Search, ChevronRight, X, CheckCircle, Clock, Calendar, XCircle
 } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import api from '../../services/api';
 import { formatPrice } from '../../utils/format';
@@ -23,6 +24,8 @@ export default function AdminDeliveryScreen() {
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('Semua');
+  const [dateFilter, setDateFilter] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Vehicle Modal
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
@@ -74,8 +77,11 @@ export default function AdminDeliveryScreen() {
     if (activeTab !== 'Semua') {
       result = result.filter(o => (o.shipping?.deliveryStatus || 'Menunggu') === activeTab);
     }
+    if (dateFilter) {
+      result = result.filter(o => o.createdAt && o.createdAt.startsWith(dateFilter));
+    }
     return result;
-  }, [kurirOrders, searchQuery, activeTab]);
+  }, [kurirOrders, searchQuery, activeTab, dateFilter]);
 
   const handleUpdateDeliveryStatus = async (orderId: string, newStatus: string, vehicleId?: number) => {
     setSubmitting(true);
@@ -201,6 +207,51 @@ export default function AdminDeliveryScreen() {
             </Pressable>
           ))}
         </ScrollView>
+
+        <View style={{ paddingHorizontal: Spacing.lg, marginBottom: Spacing.md, zIndex: 10 }}>
+          <Pressable 
+            onPress={() => setShowDatePicker(true)} 
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.borderLight, paddingHorizontal: Spacing.md, height: 40, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border }}
+          >
+            <Text style={{ color: dateFilter ? Colors.textMain : Colors.textMuted, fontSize: FontSizes.xs }}>
+              {dateFilter || "Filter Tanggal"}
+            </Text>
+            {dateFilter ? (
+              <Pressable onPress={() => setDateFilter('')}>
+                <XCircle size={16} color={Colors.textMuted} />
+              </Pressable>
+            ) : (
+              <Calendar size={16} color={Colors.textMuted} />
+            )}
+          </Pressable>
+          {showDatePicker && (
+            <Modal visible={true} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
+              <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setShowDatePicker(false)}>
+                <Pressable style={{ backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.md, width: 340, alignSelf: 'center', alignItems: 'center', paddingBottom: Spacing.xl }} onPress={(e) => e.stopPropagation()}>
+                  {Platform.OS === 'ios' && (
+                    <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'flex-end', marginBottom: Spacing.md }}>
+                      <Pressable onPress={() => setShowDatePicker(false)}>
+                        <Text style={{ color: Colors.primary, fontWeight: Fonts.bold, fontSize: FontSizes.base }}>Selesai</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  <DateTimePicker
+                    value={dateFilter ? new Date(dateFilter) : new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    themeVariant="light"
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === 'android') setShowDatePicker(false);
+                      if (selectedDate) {
+                        setDateFilter(selectedDate.toISOString().split('T')[0]);
+                      }
+                    }}
+                  />
+                </Pressable>
+              </Pressable>
+            </Modal>
+          )}
+        </View>
 
         {loading ? (
           <ActivityIndicator style={{ marginTop: 40 }} />

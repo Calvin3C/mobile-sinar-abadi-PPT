@@ -227,10 +227,10 @@ export default function ValidatePaymentScreen() {
             let statusLabel = 'Menunggu';
             let statusColor = Colors.warning;
             let statusBg = Colors.warningBg;
-            if (status === 'success') { statusLabel = 'Diproses'; statusColor = Colors.info; statusBg = Colors.infoBg; }
-            if (status === 'shipping') { statusLabel = 'Dikirim'; statusColor = Colors.danger; statusBg = Colors.dangerBg; }
+            if (status === 'success') { statusLabel = 'Diproses'; statusColor = Colors.warning; statusBg = Colors.warningBg; }
+            if (status === 'shipping') { statusLabel = 'Dikirim'; statusColor = Colors.warning; statusBg = Colors.warningBg; }
             if (isCompleted) { statusLabel = 'Selesai'; statusColor = Colors.success; statusBg = Colors.successBg; }
-            if (isCancelled) { statusLabel = 'Dibatalkan'; statusColor = Colors.textMuted; statusBg = Colors.borderLight; }
+            if (isCancelled) { statusLabel = 'Dibatalkan'; statusColor = Colors.danger; statusBg = Colors.dangerBg; }
 
             return (
               <View key={order.id} style={styles.card}>
@@ -349,7 +349,6 @@ export default function ValidatePaymentScreen() {
           {proofUrl ? (
             <View style={{ width: '100%', height: '80%', alignItems: 'center' }}>
               <Image source={{ uri: proofUrl }} style={styles.proofImage} resizeMode="contain" />
-              <Text style={{ color: Colors.white, fontSize: 10, marginTop: 10 }}>{proofUrl}</Text>
             </View>
           ) : (
             <Text style={{ color: Colors.white }}>Gambar tidak tersedia</Text>

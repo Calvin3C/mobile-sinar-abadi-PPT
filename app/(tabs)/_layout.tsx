@@ -1,12 +1,24 @@
 import React from 'react';
 import { Tabs, Link } from 'expo-router';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Home, Search, User, ShoppingCart } from 'lucide-react-native';
+import { Home, Search, User, ShoppingCart, Crown, Shield } from 'lucide-react-native';
 import { Colors, Fonts } from '../../constants/theme';
 import { useCartStore } from '../../stores/cartStore';
+import { useAuthStore } from '../../stores/authStore';
 
 export default function TabLayout() {
   const itemCount = useCartStore((s) => s.items.length);
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  const userRole = isAuthenticated && user ? user.role : 'customer';
+  const isOwner = userRole === 'owner';
+  const isAdmin = userRole === 'admin';
+  const isStaff = isOwner || isAdmin;
+
+  // Determine Home tab title and icon based on role
+  const homeTitle = isOwner ? 'Dashboard Owner' : isAdmin ? 'Dashboard Admin' : 'Home';
+  const HomeIcon = isOwner ? Crown : isAdmin ? Shield : Home;
 
   return (
     <Tabs
@@ -18,27 +30,30 @@ export default function TabLayout() {
         headerStyle: styles.header,
         headerTitleStyle: styles.headerTitle,
         headerRight: () => (
-          <Link href="/cart" asChild>
-            <Pressable style={styles.cartButton}>
-              <ShoppingCart size={22} color={Colors.textMain} />
-              {itemCount > 0 && (
-                <View style={styles.cartBadge}>
-                  <Text style={styles.cartBadgeText}>
-                    {itemCount > 9 ? '9+' : itemCount}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          </Link>
+          // Hide cart icon for staff roles
+          isStaff ? null : (
+            <Link href="/cart" asChild>
+              <Pressable style={styles.cartButton}>
+                <ShoppingCart size={22} color={Colors.textMain} />
+                {itemCount > 0 && (
+                  <View style={styles.cartBadge}>
+                    <Text style={styles.cartBadgeText}>
+                      {itemCount > 9 ? '9+' : itemCount}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </Link>
+          )
         ),
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: homeTitle,
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <HomeIcon size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -47,6 +62,8 @@ export default function TabLayout() {
           title: 'Katalog',
           headerTitle: 'Katalog Produk',
           tabBarIcon: ({ color, size }) => <Search size={size} color={color} />,
+          // Hide catalog tab for owner and admin
+          href: isStaff ? null : '/(tabs)/catalog',
         }}
       />
       <Tabs.Screen

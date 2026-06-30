@@ -233,7 +233,7 @@ export default function TrackingScreen() {
           )}
 
           {/* Complete button */}
-          {(isDelivered || orderData.status?.toLowerCase() === 'shipping') && orderData.status?.toLowerCase() !== 'completed' && (
+          {((orderData.shipping?.biteshipOrderId ? isDelivered : orderData.status?.toLowerCase() === 'shipping') || isDelivered) && orderData.status?.toLowerCase() !== 'completed' && (
             <Pressable style={styles.completeButton} onPress={handleComplete}>
               <CheckCircle size={20} color={Colors.white} />
               <Text style={styles.completeButtonText}>Pesanan Diterima</Text>
