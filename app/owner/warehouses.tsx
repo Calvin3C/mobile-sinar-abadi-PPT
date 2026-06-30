@@ -75,6 +75,8 @@ export default function WarehousesScreen() {
   const [outboundWarehouseFilter, setOutboundWarehouseFilter] = useState('');
   const [showOutboundDateFilterPicker, setShowOutboundDateFilterPicker] = useState(false);
   const [transferSearch, setTransferSearch] = useState('');
+  const [transferDateFilter, setTransferDateFilter] = useState('');
+  const [showTransferDateFilterPicker, setShowTransferDateFilterPicker] = useState(false);
 
   // Modals state
   const [isWarehouseModalOpen, setIsWarehouseModalOpen] = useState(false);
@@ -258,12 +260,23 @@ export default function WarehousesScreen() {
     return matchSearch && matchDate && matchWarehouse;
   });
 
-  const filteredTransfers = transfers.filter(t =>
-    (t.product?.name || '').toLowerCase().includes(transferSearch.toLowerCase()) ||
-    (t.fromWarehouse?.name || '').toLowerCase().includes(transferSearch.toLowerCase()) ||
-    (t.toWarehouse?.name || '').toLowerCase().includes(transferSearch.toLowerCase()) ||
-    (t.notes || '').toLowerCase().includes(transferSearch.toLowerCase())
-  );
+  const filteredTransfers = transfers.filter((t: any) => {
+    let match = true;
+    if (transferSearch) {
+      const q = transferSearch.toLowerCase();
+      match = match && (
+        (t.product?.name || '').toLowerCase().includes(q) ||
+        (t.fromWarehouse?.name || '').toLowerCase().includes(q) ||
+        (t.toWarehouse?.name || '').toLowerCase().includes(q) ||
+        (t.notes || '').toLowerCase().includes(q)
+      );
+    }
+    if (transferDateFilter) {
+      const datePart = t.createdAt ? t.createdAt.split('T')[0] : '';
+      match = match && datePart === transferDateFilter;
+    }
+    return match;
+  });
 
 
   const renderTabs = () => (
@@ -545,7 +558,7 @@ export default function WarehousesScreen() {
   const renderTransfer = () => (
     <View>
       <View style={{ flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.md }}>
-        <View style={[styles.searchContainer, { flex: 1 }]}>
+        <View style={[styles.searchContainer, { flex: 1, marginBottom: 0 }]}>
           <Search size={18} color={Colors.textMuted} />
           <TextInput
             style={styles.searchInput}
@@ -553,6 +566,53 @@ export default function WarehousesScreen() {
             value={transferSearch}
             onChangeText={setTransferSearch}
           />
+        </View>
+      </View>
+      
+      <View style={{ flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md, zIndex: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Pressable 
+            onPress={() => setShowTransferDateFilterPicker(true)} 
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.borderLight, paddingHorizontal: Spacing.md, height: 40, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border }}
+          >
+            <Text style={{ color: transferDateFilter ? Colors.textMain : Colors.textMuted, fontSize: FontSizes.xs }}>
+              {transferDateFilter || "Semua Tanggal"}
+            </Text>
+            {transferDateFilter ? (
+              <Pressable onPress={() => setTransferDateFilter('')}>
+                <XCircle size={16} color={Colors.textMuted} />
+              </Pressable>
+            ) : (
+              <Calendar size={16} color={Colors.textMuted} />
+            )}
+          </Pressable>
+          {showTransferDateFilterPicker && (
+            <Modal visible={true} transparent animationType="fade" onRequestClose={() => setShowTransferDateFilterPicker(false)}>
+              <Pressable style={styles.dropdownOverlay} onPress={() => setShowTransferDateFilterPicker(false)}>
+                <Pressable style={[styles.dropdownMenu, { alignItems: 'center', paddingBottom: Spacing.xl }]} onPress={(e) => e.stopPropagation()}>
+                  {Platform.OS === 'ios' && (
+                    <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'flex-end', marginBottom: Spacing.md }}>
+                      <Pressable onPress={() => setShowTransferDateFilterPicker(false)}>
+                        <Text style={{ color: Colors.primary, fontWeight: Fonts.bold, fontSize: FontSizes.base }}>Selesai</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  <DateTimePicker
+                    value={transferDateFilter ? new Date(transferDateFilter) : new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    themeVariant="light"
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === 'android') setShowTransferDateFilterPicker(false);
+                      if (selectedDate) {
+                        setTransferDateFilter(selectedDate.toISOString().split('T')[0]);
+                      }
+                    }}
+                  />
+                </Pressable>
+              </Pressable>
+            </Modal>
+          )}
         </View>
       </View>
 
@@ -793,8 +853,8 @@ export default function WarehousesScreen() {
       <Modal visible={isInboundDetailModalOpen} transparent animationType="slide" onRequestClose={() => setIsInboundDetailModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: '90%', width: '95%' }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg }}>
-              <Text style={[styles.modalTitle, { marginBottom: 0 }]}>Detail Purchase Order (PO-{selectedInbound?.id})</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+              <Text style={[styles.modalTitle, { marginBottom: 0, flex: 1, marginRight: Spacing.sm, fontSize: FontSizes.base }]}>Detail Purchase Order (PO-{selectedInbound?.id})</Text>
               <Pressable onPress={() => setIsInboundDetailModalOpen(false)}>
                 <XCircle size={24} color={Colors.textMuted} />
               </Pressable>
@@ -862,61 +922,60 @@ export default function WarehousesScreen() {
       <Modal visible={isOutboundDetailModalOpen} transparent animationType="slide" onRequestClose={() => setIsOutboundDetailModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: '90%', width: '95%' }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg }}>
-              <Text style={[styles.modalTitle, { marginBottom: 0 }]}>Detail Logistik Keluar ({selectedOutbound?.id})</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+              <Text style={[styles.modalTitle, { marginBottom: 0, flex: 1, marginRight: Spacing.sm, fontSize: FontSizes.base }]}>Detail Logistik Keluar ({selectedOutbound?.id})</Text>
               <Pressable onPress={() => setIsOutboundDetailModalOpen(false)}>
                 <XCircle size={24} color={Colors.textMuted} />
               </Pressable>
             </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing.md }}>
-              <View>
-                {/* Table Header */}
-                <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.borderLight, paddingBottom: Spacing.sm, marginBottom: Spacing.sm }}>
-                  <Text style={{ width: 180, fontWeight: Fonts.bold, color: Colors.textSecondary, fontSize: FontSizes.xs, textAlign: 'left' }}>NAMA PRODUK / DESKRIPSI</Text>
-                  <Text style={{ width: 80, fontWeight: Fonts.bold, color: Colors.textSecondary, fontSize: FontSizes.xs, textAlign: 'center' }}>QTY KELUAR</Text>
-                  <Text style={{ width: 60, fontWeight: Fonts.bold, color: Colors.textSecondary, fontSize: FontSizes.xs, textAlign: 'center' }}>UOM</Text>
-                  {warehouses.map(wh => (
-                    <Text key={wh.id} style={{ width: 100, fontWeight: Fonts.bold, color: Colors.textSecondary, fontSize: FontSizes.xs, textAlign: 'center' }}>
-                      STOK AKTUAL{'\n'}({wh.name.toUpperCase()})
-                    </Text>
-                  ))}
-                  <Text style={{ width: 100, fontWeight: Fonts.bold, color: Colors.textSecondary, fontSize: FontSizes.xs, textAlign: 'center' }}>STOK ALOKASI</Text>
-                </View>
-
-                {/* Table Rows */}
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  {selectedOutbound?.items?.map((item: any, idx: number) => {
-                    const product = products.find((p: any) => String(p.id) === String(item.productId) || p.name === item.name);
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing.md }}>
+              {selectedOutbound?.items?.map((item: any, idx: number) => {
+                const product = products.find((p: any) => String(p.id) === String(item.productId) || p.name === item.name);
+                
+                return (
+                  <View key={idx} style={{ 
+                    borderWidth: 1, 
+                    borderColor: Colors.borderLight, 
+                    borderRadius: Radius.md, 
+                    padding: Spacing.md, 
+                    marginBottom: Spacing.sm,
+                    backgroundColor: Colors.white 
+                  }}>
+                    <View style={{ borderBottomWidth: 1, borderBottomColor: Colors.borderLight, paddingBottom: Spacing.sm, marginBottom: Spacing.sm }}>
+                      <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{item.name}</Text>
+                      {item.color && <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted }}>Varian: {item.color}</Text>}
+                    </View>
                     
-                    return (
-                      <View key={idx} style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.borderLight, paddingVertical: Spacing.sm, alignItems: 'center' }}>
-                        <View style={{ width: 180, paddingRight: Spacing.sm }}>
-                          <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.semibold }}>{item.name}</Text>
-                          {item.color && <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted }}>Varian: {item.color}</Text>}
-                        </View>
-                        <Text style={{ width: 80, fontSize: FontSizes.sm, color: Colors.success, fontWeight: Fonts.bold, textAlign: 'center' }}>{item.qty}</Text>
-                        <Text style={{ width: 60, fontSize: FontSizes.sm, color: Colors.textMuted, textAlign: 'center' }}>{product?.unit || 'Pcs'}</Text>
-                        
-                        {warehouses.map(wh => {
-                          let stock = 0;
-                          if (product?.warehouseStocks) {
-                            const ws = product.warehouseStocks.find((w: any) => String(w.warehouseId) === String(wh.id));
-                            stock = ws ? ws.stock : 0;
-                          }
-                          return (
-                            <Text key={wh.id} style={{ width: 100, fontSize: FontSizes.sm, color: Colors.info, textAlign: 'center' }}>
-                              {stock}
-                            </Text>
-                          );
-                        })}
-                        
-                        <Text style={{ width: 100, fontSize: FontSizes.sm, color: Colors.warning, textAlign: 'center' }}>0</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm }}>
+                      <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted }}>QTY Keluar</Text>
+                      <Text style={{ fontSize: FontSizes.sm, color: Colors.success, fontWeight: Fonts.bold }}>{item.qty} {product?.unit || 'Pcs'}</Text>
+                    </View>
+
+                    <View style={{ backgroundColor: Colors.borderLight, borderRadius: Radius.sm, padding: Spacing.sm }}>
+                      <Text style={{ fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: Colors.textSecondary, marginBottom: Spacing.xs }}>STOK AKTUAL</Text>
+                      {warehouses.map(wh => {
+                        let stock = 0;
+                        if (product?.warehouseStocks) {
+                          const ws = product.warehouseStocks.find((w: any) => String(w.warehouseId) === String(wh.id));
+                          stock = ws ? ws.stock : 0;
+                        }
+                        return (
+                          <View key={wh.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
+                            <Text style={{ fontSize: FontSizes.xs, color: Colors.textMain }}>• {wh.name}</Text>
+                            <Text style={{ fontSize: FontSizes.xs, color: Colors.info, fontWeight: Fonts.bold }}>{stock}</Text>
+                          </View>
+                        );
+                      })}
+                      
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: Spacing.sm, paddingTop: Spacing.xs, borderTopWidth: 1, borderTopColor: Colors.border }}>
+                        <Text style={{ fontSize: FontSizes.xs, color: Colors.textMain }}>Stok Alokasi</Text>
+                        <Text style={{ fontSize: FontSizes.xs, color: Colors.warning, fontWeight: Fonts.bold }}>0</Text>
                       </View>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+                    </View>
+                  </View>
+                );
+              })}
             </ScrollView>
           </View>
         </View>

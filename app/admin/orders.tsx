@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, Pressable, StyleSheet, ScrollView, Alert,
   ActivityIndicator, RefreshControl, Modal, Platform,
 } from 'react-native';
-import { Search, Truck, Store, Package, ChevronDown, Calendar, RefreshCw } from 'lucide-react-native';
+import { Search, Truck, Store, Package, ChevronDown, Calendar, RefreshCw, XCircle } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import api from '../../services/api';
@@ -29,11 +29,8 @@ export default function AdminOrders() {
   const [dateFilter, setDateFilter] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-
-  const toggleExpand = (id: string) => {
-    setExpandedOrderId((prev) => (prev === id ? null : id));
-  };
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
 
 
@@ -143,7 +140,7 @@ export default function AdminOrders() {
             </Pressable>
           ))}
         </ScrollView>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm, paddingHorizontal: Spacing.lg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: Spacing.md }}>
           {Platform.OS === 'web' ? (
             <input
               type="date"
@@ -213,7 +210,7 @@ export default function AdminOrders() {
           <EmptyState title="Tidak ada pesanan" subtitle="Pesanan akan muncul di sini" />
         ) : (
           filteredOrders.map((order) => (
-            <Pressable key={order.id} style={styles.orderCard} onPress={() => toggleExpand(order.id)}>
+            <Pressable key={order.id} style={styles.orderCard} onPress={() => { setSelectedOrder(order); setIsDetailModalOpen(true); }}>
               <View style={styles.orderHeader}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.orderId}>{order.id}</Text>
@@ -231,22 +228,6 @@ export default function AdminOrders() {
                 <Text style={styles.infoText}>{order.items?.length || 0} item — {formatPrice(order.total)}</Text>
               </View>
 
-              {expandedOrderId === order.id && (
-                <View style={styles.itemsContainer}>
-                  {order.items?.map((item, idx) => (
-                    <View key={idx} style={styles.itemRow}>
-                      <Text style={styles.itemName} numberOfLines={1}>{item.name} {item.color ? `(${item.color})` : ''}</Text>
-                      <Text style={styles.itemQty}>{item.qty}x</Text>
-                      <Text style={styles.itemPrice}>{formatPrice(item.price * item.qty)}</Text>
-                    </View>
-                  ))}
-                  <View style={styles.customerInfo}>
-                    <Text style={styles.customerInfoText}>Pemesan: {order.customerName}</Text>
-                    <Text style={styles.customerInfoText}>Alamat: {order.address}</Text>
-                    <Text style={styles.customerInfoText}>No. HP: {order.phone}</Text>
-                  </View>
-                </View>
-              )}
 
               {order.shipping?.waybillId && (
                 <View style={styles.resiRow}>
@@ -261,6 +242,95 @@ export default function AdminOrders() {
         )}
       </ScrollView>
 
+      {/* Modal Detail Pesanan */}
+      <Modal visible={isDetailModalOpen} transparent animationType="slide" onRequestClose={() => setIsDetailModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%', width: '95%', padding: Spacing.md }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+              <Text style={[styles.modalTitle, { marginBottom: 0, fontSize: FontSizes.base }]}>Detail Transaksi ({selectedOrder?.id})</Text>
+              <Pressable onPress={() => setIsDetailModalOpen(false)}>
+                <XCircle size={24} color={Colors.textMuted} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing.md }}>
+              {/* Box 1: Customer */}
+              <View style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.borderLight }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md }}>
+                  <View style={{ width: '45%' }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Nama Pelanggan</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.customer}</Text>
+                  </View>
+                  <View style={{ width: '45%' }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>No HP / WhatsApp</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.phone}</Text>
+                  </View>
+                  <View style={{ width: '45%', marginTop: Spacing.sm }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Tanggal</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.date ? formatDate(selectedOrder.date) : '-'}</Text>
+                  </View>
+                  <View style={{ width: '45%', marginTop: Spacing.sm }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Status</Text>
+                    <View style={{ alignSelf: 'flex-start' }}>
+                      <StatusBadge status={selectedOrder?.status || 'pending'} />
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Box 2: Shipping */}
+              <View style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.lg }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md }}>
+                  <View style={{ width: '100%', marginBottom: Spacing.sm }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Alamat Pengiriman</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.address}</Text>
+                  </View>
+                  <View style={{ width: '100%' }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Metode Pengiriman</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, marginBottom: 2 }}>{selectedOrder?.shippingMethod}</Text>
+                    {selectedOrder?.shipping?.waybillId && (
+                      <Text style={{ fontSize: FontSizes.xs, color: Colors.textMain }}>
+                        <Text style={{ fontWeight: Fonts.bold }}>Resi:</Text> {selectedOrder.shipping.waybillId}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+
+              {/* Box 3: Items */}
+              <Text style={{ fontSize: FontSizes.md, fontWeight: Fonts.bold, color: Colors.textMain, marginBottom: Spacing.sm }}>Daftar Item Dibeli</Text>
+              <View style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.md, overflow: 'hidden' }}>
+                <View style={{ flexDirection: 'row', backgroundColor: Colors.borderLight, padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+                  <Text style={{ flex: 2, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.bold }}>PRODUK</Text>
+                  <Text style={{ flex: 1, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.bold, textAlign: 'center' }}>QTY</Text>
+                  <Text style={{ flex: 1.5, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.bold, textAlign: 'right' }}>SUBTOTAL</Text>
+                </View>
+                
+                {selectedOrder?.items?.map((item, idx) => (
+                  <View key={idx} style={{ flexDirection: 'row', padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+                    <View style={{ flex: 2 }}>
+                      <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.semibold }}>{item.name}</Text>
+                      {item.color && <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted }}>Varian: {item.color}</Text>}
+                    </View>
+                    <Text style={{ flex: 1, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, textAlign: 'center' }}>{item.qty}</Text>
+                    <Text style={{ flex: 1.5, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.semibold, textAlign: 'right' }}>{formatPrice(item.price * item.qty)}</Text>
+                  </View>
+                ))}
+
+                <View style={{ flexDirection: 'row', padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, backgroundColor: '#fafafa' }}>
+                  <Text style={{ flex: 3, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, textAlign: 'right' }}>Ongkos Kirim:</Text>
+                  <Text style={{ flex: 1.5, fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: Fonts.semibold, textAlign: 'right' }}>{formatPrice(selectedOrder?.shipping?.shippingCost || 0)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', padding: Spacing.sm, backgroundColor: '#fafafa' }}>
+                  <Text style={{ flex: 3, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, textAlign: 'right' }}>Total Tagihan:</Text>
+                  <Text style={{ flex: 1.5, fontSize: FontSizes.md, color: Colors.danger, fontWeight: Fonts.bold, textAlign: 'right' }}>{formatPrice(selectedOrder?.total || 0)}</Text>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal Resi */}
     </View>
   );
@@ -272,7 +342,7 @@ const styles = StyleSheet.create({
   filterSection: { backgroundColor: Colors.white, paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.borderLight, borderRadius: Radius.md, paddingHorizontal: Spacing.md, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   searchInput: { flex: 1, fontSize: FontSizes.sm, color: Colors.textMain, paddingVertical: Spacing.sm },
-  statusPills: { marginBottom: Spacing.md },
+  statusPills: { marginBottom: Spacing.sm },
   pill: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.full, backgroundColor: Colors.borderLight, marginRight: Spacing.sm, borderWidth: 1, borderColor: Colors.border },
   pillActive: { backgroundColor: Colors.primaryBg, borderColor: Colors.primary },
   pillText: { fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.medium },

@@ -27,7 +27,7 @@ export default function OwnerLogin() {
     setLoading(true);
     try {
       await login(email.trim(), password, 'owner');
-      router.replace('/owner/dashboard');
+      router.replace('/owner');
     } catch (error: any) {
       const msg = error?.response?.data?.error || 'Login gagal. Periksa kembali data Anda.';
       Alert.alert('Login Gagal', msg);
