@@ -1,0 +1,12 @@
+{
+  "destinationAreaId": "ID51710111",
+  "couriers": "jne,sicepat,jnt",
+  "items": [
+    {
+      "name": "Bata",
+      "value": 1000,
+      "quantity": 1,
+      "weight": 2000
+    }
+  ]
+}

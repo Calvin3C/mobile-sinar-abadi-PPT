@@ -1,0 +1,68 @@
+package services
+
+import (
+	"errors"
+	"gorm.io/gorm"
+	"sinar-abadi-backend/models"
+)
+
+// InventoryService provides methods for managing stock using the Ledger Pattern.
+type InventoryService struct {
+	DB *gorm.DB
+}
+
+func NewInventoryService(db *gorm.DB) *InventoryService {
+	return &InventoryService{DB: db}
+}
+
+// GetCurrentStock mengambil total stok saat ini dari suatu produk melalui View.
+func (s *InventoryService) GetCurrentStock(productID string) (int, error) {
+	var totalStock int
+	err := s.DB.Table("v_product_stocks").
+		Where("product_id = ?", productID).
+		Select("total_stock").
+		Scan(&totalStock).Error
+		
+	return totalStock, err
+}
+
+// ProcessStockOutTransaction mengecek stok cukup dan mengamankan transaksi (Menggunakan DB Transaction).
+func (s *InventoryService) ProcessStockOutTransaction(productID string, outQuantity int, referenceID string, description string) error {
+	// Pastikan quantity untuk pengeluaran barang (OUT) bernilai negatif
+	if outQuantity > 0 {
+		outQuantity = -outQuantity
+	}
+
+	// Memulai Database Transaction
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		// a. Ambil total stok saat ini menggunakan View
+		var currentStock int
+		if err := tx.Table("v_product_stocks").
+			Where("product_id = ?", productID).
+			Select("total_stock").
+			Scan(&currentStock).Error; err != nil {
+			return err
+		}
+
+		// b. Cek apakah stok cukup (outQuantity bernilai negatif, maka kita tambahkan)
+		if currentStock + outQuantity < 0 {
+			return errors.New("stok tidak mencukupi untuk transaksi ini")
+		}
+
+		// c. Insert ke stock_logs
+		log := models.StockLog{
+			ProductID:   productID,
+			Quantity:    outQuantity,
+			Type:        models.StockOut,
+			ReferenceID: referenceID,
+			Description: description,
+		}
+
+		if err := tx.Create(&log).Error; err != nil {
+			return err
+		}
+
+		// Jika return nil, maka transaksi berhasil di-commit secara otomatis
+		return nil
+	})
+}
