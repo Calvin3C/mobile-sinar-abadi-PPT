@@ -64,30 +64,30 @@ export default function AdminCustomers() {
       </View>
       <FlatList
         data={filteredCustomers}
-      keyExtractor={(item) => String(item.id)}
-      contentContainerStyle={styles.content}
-      ListEmptyComponent={<EmptyState title="Belum ada customer" />}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetch(); }} colors={[Colors.primary]} />}
-      renderItem={({ item }) => (
-        <View style={styles.card}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{item.name?.charAt(0)?.toUpperCase() || 'U'}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.username}>@{item.username}</Text>
-            <View style={styles.detailRow}>
-              <Mail size={12} color={Colors.textMuted} />
-              <Text style={styles.detailText}>{item.email}</Text>
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={styles.content}
+        ListEmptyComponent={<EmptyState title="Belum ada customer" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetch(); }} colors={[Colors.primary]} />}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{item.name?.charAt(0)?.toUpperCase() || 'U'}</Text>
             </View>
-            <View style={styles.detailRow}>
-              <Phone size={12} color={Colors.textMuted} />
-              <Text style={styles.detailText}>{item.phone}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.name}>{item.name}</Text>
+              <Text style={styles.username}>@{item.username}</Text>
+              <View style={styles.detailRow}>
+                <Mail size={12} color={Colors.textMuted} />
+                <Text style={styles.detailText}>{item.email}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Phone size={12} color={Colors.textMuted} />
+                <Text style={styles.detailText}>{item.phone}</Text>
+              </View>
             </View>
           </View>
-        </View>
-      )}
-    />
+        )}
+      />
     </View>
   );
 }
