@@ -27,7 +27,7 @@ export default function AdminLogin() {
     setLoading(true);
     try {
       await login(email.trim(), password, 'admin');
-      router.replace('/admin/dashboard');
+      router.replace('/admin');
     } catch (error: any) {
       const msg = error?.response?.data?.error || 'Login gagal. Periksa kembali data Anda.';
       Alert.alert('Login Gagal', msg);

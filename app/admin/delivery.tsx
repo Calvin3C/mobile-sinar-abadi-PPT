@@ -33,6 +33,10 @@ export default function AdminDeliveryScreen() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Order Detail Modal
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
   const fetchData = async () => {
     try {
       const [ordersRes, fleetRes] = await Promise.all([
@@ -89,7 +93,7 @@ export default function AdminDeliveryScreen() {
       const payload: any = { deliveryStatus: newStatus };
       if (vehicleId) payload.fleetVehicleId = vehicleId;
 
-      await api.put(`/admin/orders/${orderId}/delivery-status`, payload);
+      await api.put(`/delivery/${orderId}/status`, payload);
       
       // Close modal if open
       setIsVehicleModalOpen(false);
@@ -271,7 +275,7 @@ export default function AdminDeliveryScreen() {
             if (status === 'Selesai') { statusColor = Colors.success; statusBg = Colors.successBg; }
 
             return (
-              <View key={order.id} style={styles.orderCard}>
+              <Pressable key={order.id} style={styles.orderCard} onPress={() => { setSelectedOrder(order as Order); setIsDetailModalOpen(true); }}>
                 <View style={styles.orderHeader}>
                   <Text style={styles.orderId}>{order.id}</Text>
                   <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
@@ -296,7 +300,7 @@ export default function AdminDeliveryScreen() {
                 <View style={styles.orderDetailRow}>
                   <Text style={styles.orderLabel}>Ongkir</Text>
                   <Text style={[styles.orderValue, { fontWeight: Fonts.bold }]}>
-                    {order.shippingCost === 0 ? 'Gratis' : formatPrice(order.shippingCost)}
+                    {(order.shipping?.shippingCost || 0) === 0 ? 'Gratis' : formatPrice(order.shipping?.shippingCost || 0)}
                   </Text>
                 </View>
 
@@ -313,7 +317,7 @@ export default function AdminDeliveryScreen() {
                     </Text>
                   </Pressable>
                 )}
-              </View>
+              </Pressable>
             );
           })
         )}
@@ -370,6 +374,111 @@ export default function AdminDeliveryScreen() {
         </View>
       </Modal>
 
+      {/* Order Detail Modal */}
+      <Modal visible={isDetailModalOpen} transparent animationType="slide" onRequestClose={() => setIsDetailModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%', width: '100%' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+              <Text style={[styles.modalTitle, { marginBottom: 0, fontSize: FontSizes.base }]}>Detail Transaksi ({selectedOrder?.id})</Text>
+              <Pressable onPress={() => setIsDetailModalOpen(false)}>
+                <XCircle size={24} color={Colors.textMuted} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing.md }}>
+              {/* Box 1: Customer */}
+              <View style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.borderLight }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md }}>
+                  <View style={{ width: '45%' }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Nama Pelanggan</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.customer}</Text>
+                  </View>
+                  <View style={{ width: '45%' }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>No HP / WhatsApp</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.phone}</Text>
+                  </View>
+                  <View style={{ width: '45%', marginTop: Spacing.sm }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Tanggal</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.date ? formatDate(selectedOrder.date) : '-'}</Text>
+                  </View>
+                  <View style={{ width: '45%', marginTop: Spacing.sm }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Status</Text>
+                    {(() => {
+                      const st = selectedOrder?.shipping?.deliveryStatus || 'Menunggu';
+                      let bg = Colors.borderLight;
+                      let c = Colors.textMuted;
+                      if (st === 'Menunggu') { bg = Colors.warningBg; c = Colors.warning; }
+                      if (st === 'Diproses') { bg = Colors.infoBg; c = Colors.info; }
+                      if (st === 'Dikirim') { bg = Colors.dangerBg; c = Colors.danger; }
+                      if (st === 'Selesai') { bg = Colors.successBg; c = Colors.success; }
+                      return (
+                        <View style={{ alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.md, backgroundColor: bg }}>
+                          <Text style={{ fontSize: FontSizes.xs, fontWeight: Fonts.bold, color: c }}>{st}</Text>
+                        </View>
+                      );
+                    })()}
+                  </View>
+                </View>
+              </View>
+
+              {/* Box 2: Shipping */}
+              <View style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.lg }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md }}>
+                  <View style={{ width: '100%', marginBottom: Spacing.sm }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Alamat Pengiriman</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.address}</Text>
+                  </View>
+                  <View style={{ width: '100%' }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Metode Pengiriman</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, marginBottom: 2 }}>{selectedOrder?.shippingMethod}</Text>
+                    {selectedOrder?.shipping?.waybillId && (
+                      <Text style={{ fontSize: FontSizes.xs, color: Colors.textMain }}>
+                        <Text style={{ fontWeight: Fonts.bold }}>Resi:</Text> {selectedOrder.shipping.waybillId}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+
+              {/* Box 3: Items */}
+              <Text style={{ fontSize: FontSizes.md, fontWeight: Fonts.bold, color: Colors.textMain, marginBottom: Spacing.sm }}>Daftar Item Dibeli</Text>
+              <View style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.md, overflow: 'hidden' }}>
+                <View style={{ flexDirection: 'row', backgroundColor: Colors.borderLight, padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+                  <Text style={{ flex: 2, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.bold }}>PRODUK</Text>
+                  <Text style={{ flex: 1, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.bold, textAlign: 'center' }}>QTY</Text>
+                  <Text style={{ flex: 1.5, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.bold, textAlign: 'right' }}>SUBTOTAL</Text>
+                </View>
+                
+                {(!selectedOrder?.items || selectedOrder.items.length === 0) ? (
+                  <View style={{ padding: Spacing.md, alignItems: 'center' }}>
+                    <Text style={{ color: Colors.textMuted }}>Data produk tidak tersedia</Text>
+                  </View>
+                ) : (
+                  selectedOrder?.items?.map((item: any, idx: number) => (
+                    <View key={idx} style={{ flexDirection: 'row', padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+                      <View style={{ flex: 2 }}>
+                        <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.semibold }}>{item.name}</Text>
+                        {item.color && <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted }}>Varian: {item.color}</Text>}
+                      </View>
+                      <Text style={{ flex: 1, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, textAlign: 'center' }}>{item.qty}</Text>
+                      <Text style={{ flex: 1.5, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.semibold, textAlign: 'right' }}>{formatPrice(item.price * item.qty)}</Text>
+                    </View>
+                  ))
+                )}
+
+                <View style={{ flexDirection: 'row', padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, backgroundColor: '#fafafa' }}>
+                  <Text style={{ flex: 3, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, textAlign: 'right' }}>Ongkos Kirim:</Text>
+                  <Text style={{ flex: 1.5, fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: Fonts.semibold, textAlign: 'right' }}>{formatPrice(selectedOrder?.shipping?.shippingCost || 0)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', padding: Spacing.sm, backgroundColor: '#fafafa' }}>
+                  <Text style={{ flex: 3, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, textAlign: 'right' }}>Total Tagihan:</Text>
+                  <Text style={{ flex: 1.5, fontSize: FontSizes.md, color: Colors.danger, fontWeight: Fonts.bold, textAlign: 'right' }}>{formatPrice(selectedOrder?.total || 0)}</Text>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

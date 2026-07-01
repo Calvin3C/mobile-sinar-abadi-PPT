@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl,
   TextInput, Pressable, Platform, Modal,
 } from 'react-native';
-import { Search, Calendar, RefreshCw } from 'lucide-react-native';
+import { Search, Calendar, RefreshCw, XCircle, CheckCircle, Package, Truck } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors, Fonts, FontSizes, Spacing, Radius, Shadows } from '../../constants/theme';
 import api from '../../services/api';
@@ -20,6 +20,9 @@ export default function CustomerHistory() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const fetchOrders = async () => {
     try {
@@ -129,7 +132,7 @@ export default function CustomerHistory() {
           <EmptyState title="Tidak ada pesanan" subtitle="Riwayat tidak ditemukan berdasarkan filter" />
         ) : (
           filteredOrders.map((order) => (
-            <View key={order.id} style={styles.orderCard}>
+            <Pressable key={order.id} style={styles.orderCard} onPress={() => { setSelectedOrder(order); setIsDetailModalOpen(true); }}>
               <View style={styles.orderHeader}>
                 <View>
                   <Text style={styles.orderId}>{order.id}</Text>
@@ -148,10 +151,108 @@ export default function CustomerHistory() {
                 <Text style={styles.totalLabel}>Total</Text>
                 <Text style={styles.totalValue}>{formatPrice(order.total)}</Text>
               </View>
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>
+
+      {/* Modal Detail Pesanan */}
+      <Modal visible={isDetailModalOpen} transparent animationType="slide" onRequestClose={() => setIsDetailModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%', width: '95%', padding: Spacing.md }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+              <Text style={[styles.modalTitle, { marginBottom: 0, fontSize: FontSizes.base }]}>Detail Transaksi ({selectedOrder?.id})</Text>
+              <Pressable onPress={() => setIsDetailModalOpen(false)}>
+                <XCircle size={24} color={Colors.textMuted} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing.md }}>
+              {/* Box 1: Customer */}
+              <View style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.md, backgroundColor: Colors.borderLight }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md }}>
+                  <View style={{ width: '45%' }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Nama Pelanggan</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.customer}</Text>
+                  </View>
+                  <View style={{ width: '45%' }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>No HP / WhatsApp</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.phone}</Text>
+                  </View>
+                  <View style={{ width: '45%', marginTop: Spacing.sm }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Tanggal</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.date ? formatDate(selectedOrder.date) : '-'}</Text>
+                  </View>
+                  <View style={{ width: '45%', marginTop: Spacing.sm }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Status</Text>
+                    <View style={{ alignSelf: 'flex-start' }}>
+                      <StatusBadge status={selectedOrder?.status || 'pending'} />
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Box 2: Shipping */}
+              <View style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.lg }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md }}>
+                  <View style={{ width: '100%', marginBottom: Spacing.sm }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Alamat Pengiriman</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold }}>{selectedOrder?.address}</Text>
+                  </View>
+                  <View style={{ width: '100%' }}>
+                    <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted, marginBottom: 2 }}>Metode Pengiriman</Text>
+                    <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, marginBottom: 2 }}>{selectedOrder?.shippingMethod}</Text>
+                    {selectedOrder?.shipping?.waybillId && (
+                      <Text style={{ fontSize: FontSizes.xs, color: Colors.textMain }}>
+                        <Text style={{ fontWeight: Fonts.bold }}>Resi:</Text> {selectedOrder.shipping.waybillId}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+
+              {/* Box 3: Items */}
+              <Text style={{ fontSize: FontSizes.md, fontWeight: Fonts.bold, color: Colors.textMain, marginBottom: Spacing.sm }}>Daftar Item Dibeli</Text>
+              <View style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: Radius.md, overflow: 'hidden', marginBottom: Spacing.lg }}>
+                <View style={{ flexDirection: 'row', backgroundColor: Colors.borderLight, padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+                  <Text style={{ flex: 2, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.bold }}>PRODUK</Text>
+                  <Text style={{ flex: 1, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.bold, textAlign: 'center' }}>QTY</Text>
+                  <Text style={{ flex: 1.5, fontSize: FontSizes.xs, color: Colors.textMuted, fontWeight: Fonts.bold, textAlign: 'right' }}>SUBTOTAL</Text>
+                </View>
+                
+                {selectedOrder?.items?.map((item, idx) => (
+                  <View key={idx} style={{ flexDirection: 'row', padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+                    <View style={{ flex: 2 }}>
+                      <Text style={{ fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.semibold }}>{item.name}</Text>
+                      {item.color && <Text style={{ fontSize: FontSizes.xs, color: Colors.textMuted }}>Varian: {item.color}</Text>}
+                    </View>
+                    <Text style={{ flex: 1, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, textAlign: 'center' }}>{item.qty}</Text>
+                    <Text style={{ flex: 1.5, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.semibold, textAlign: 'right' }}>{formatPrice(item.price * item.qty)}</Text>
+                  </View>
+                ))}
+
+                <View style={{ flexDirection: 'row', padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, backgroundColor: '#fafafa' }}>
+                  <Text style={{ flex: 3, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, textAlign: 'right' }}>Ongkos Kirim:</Text>
+                  <Text style={{ flex: 1.5, fontSize: FontSizes.sm, color: Colors.textMuted, fontWeight: Fonts.semibold, textAlign: 'right' }}>{(selectedOrder?.shipping?.shippingCost || 0) === 0 ? 'Gratis' : formatPrice(selectedOrder?.shipping?.shippingCost || 0)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', padding: Spacing.sm, backgroundColor: '#fafafa' }}>
+                  <Text style={{ flex: 3, fontSize: FontSizes.sm, color: Colors.textMain, fontWeight: Fonts.bold, textAlign: 'right' }}>Total Tagihan:</Text>
+                  <Text style={{ flex: 1.5, fontSize: FontSizes.md, color: Colors.danger, fontWeight: Fonts.bold, textAlign: 'right' }}>{formatPrice(selectedOrder?.total || 0)}</Text>
+                </View>
+              </View>
+
+              {/* Success Banner */}
+              <View style={{ backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.success, borderRadius: Radius.md, padding: Spacing.md }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <CheckCircle size={16} color={Colors.success} style={{ marginRight: 8 }} />
+                  <Text style={{ fontSize: FontSizes.sm, fontWeight: Fonts.bold, color: Colors.successDark }}>Pesanan Selesai</Text>
+                </View>
+                <Text style={{ fontSize: FontSizes.xs, color: Colors.successDark, marginLeft: 24 }}>Pesanan ini telah selesai diproses. Terima kasih telah berbelanja di Sinar Abadi!</Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

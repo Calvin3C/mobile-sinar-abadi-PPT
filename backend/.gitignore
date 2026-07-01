@@ -1,0 +1,25 @@
+# Sinar Abadi Backend
+
+## Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+## Go
+/vendor/
+
+## Environment
+.env
+
+## IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+## OS
+.DS_Store
+Thumbs.db

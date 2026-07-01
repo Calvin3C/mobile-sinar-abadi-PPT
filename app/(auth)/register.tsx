@@ -87,6 +87,16 @@ export default function CustomerRegister() {
             <ArrowLeft size={24} color={Colors.textMain} />
           </Pressable>
 
+          <View style={styles.logoContainer}>
+            <View style={styles.logoCircle}>
+              <Text style={styles.logoText}>SA</Text>
+            </View>
+            <Text style={styles.brandName}>
+              SINAR <Text style={styles.brandAccent}>ABADI</Text>
+            </Text>
+            <Text style={styles.subtitle}>Buat akun pelanggan baru</Text>
+          </View>
+
           <View style={styles.formContainer}>
             {errorMessage ? (
               <View style={styles.errorBox}>
@@ -212,6 +222,44 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: Radius.lg,
     backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center',
     marginBottom: Spacing.lg,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: Spacing['2xl'],
+  },
+  logoCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  logoText: {
+    color: '#FFFFFF',
+    fontSize: FontSizes['2xl'],
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  brandName: {
+    fontSize: FontSizes['2xl'],
+    fontWeight: '800',
+    color: '#1F2937',
+    letterSpacing: 2,
+  },
+  brandAccent: {
+    color: '#DC2626',
+  },
+  subtitle: {
+    fontSize: FontSizes.base,
+    color: '#6B7280',
+    marginTop: Spacing.xs,
   },
   formContainer: {
     backgroundColor: '#FFFFFF',

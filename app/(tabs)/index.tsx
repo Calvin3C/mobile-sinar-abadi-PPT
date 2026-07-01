@@ -50,24 +50,9 @@ const CATEGORY_COLORS: Record<string, string> = {
   'keramik': '#f0fdfa',
 };
 
+// Customer HomeScreen
+
 export default function HomeScreen() {
-  const { user, isAuthenticated } = useAuthStore();
-
-  // Owner role: show Owner Dashboard
-  if (isAuthenticated && user?.role === 'owner') {
-    return <OwnerDashboard />;
-  }
-
-  // Admin role: show Admin Dashboard
-  if (isAuthenticated && user?.role === 'admin') {
-    return <AdminDashboard />;
-  }
-
-  // Customer / Guest: show normal store home page
-  return <CustomerHomeScreen />;
-}
-
-function CustomerHomeScreen() {
   const router = useRouter();
   const cartCount = useCartStore((s) => s.items.length);
   const [bestSellers, setBestSellers] = useState<Product[]>([]);
